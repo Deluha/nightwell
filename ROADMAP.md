@@ -99,8 +99,11 @@ behavioural:
   third-party repository; anything that must be looked up is looked up in a separate session.
 - **Unreachable is an answer.** If the database cannot be reached, or a check would need a write, the
   assumption stays marked "unverified" with the reason, and the phase that depends on it resolves it.
-- **A preference.** A project with no real user data is preferred. If the supplied project holds real
-  data, the rules above are what keeps it out of the repository.
+- **It holds real data** (owner, 2026-11-25). The rules above are therefore mandatory, not precautions:
+  the dedicated role is created before any session connects, and a session that finds only a broader
+  credential in its environment stops and tells the owner instead of using it. Checks that would need a
+  disposable project (the shape of a dashboard-created webhook, scanner-role grants) wait for the
+  throwaway project in Phase 3.
 
 The hosted **reference snapshot** of the demo project itself (Phase 3) is separate. It is owner-assisted
 (confirmed by the owner, 2026-11-25): the owner creates a throwaway project in an organisation that holds

@@ -66,10 +66,11 @@ test subject:
   objects, no host, project reference or credential is written into the repository, a commit message, a
   pull request or a report.
 - The tests still run against the demo fixture only. A hosted **reference snapshot** of the demo project
-  itself (Phase 2) is a separate step that needs a throwaway project — the owner's call at the Phase 1
-  sign-off.
+  itself (Phase 2) is a separate step on a throwaway project, confirmed by the owner on 2026-11-25: the
+  demo's migrations are applied to a disposable hosted project once per release, a snapshot is taken, and
+  the project is deleted.
 
-### Proposed additions (owner to confirm at the Phase 0 sign-off)
+### Additions (confirmed by the owner, 2026-11-25)
 
 | # | Proposal | Why |
 |---|---|---|
@@ -88,8 +89,9 @@ test subject:
 ### Codenames
 
 Each feature is named after a Nighthold encounter; supporting pieces take names from Suramar. Codenames
-never replace module, file, command or JSON field names. Where they appear (contributor docs only, or also
-banners and reports) is a Phase 0 sign-off item, because the names are another company's trademarks.
+never replace module, file, command or JSON field names. They are used in contributor docs and in
+conversation only: not in CLI output, report content, the package description or the JSON, because the
+names are another company's trademarks (owner, 2026-11-25).
 
 | Codename | Feature | Phase |
 |---|---|---|
@@ -221,7 +223,7 @@ section is the specification.
 4. Modular, single source of truth: every fact, constant and definition has one home; surgical changes over
    sweeping refactors; every pull request leaves touched files clearer than it found them.
 
-**Hard rules** (*proposed*; short form in `CLAUDE.md`, full form in `references/conventions.md`):
+**Hard rules** (confirmed by the owner, 2026-11-25; short form in `CLAUDE.md`, full form in `references/conventions.md`):
 
 | # | Rule |
 |---|---|
@@ -236,7 +238,7 @@ section is the specification.
 | R9 | **Secrets never leave.** Connection strings, keys, environment-variable values, and any credential found inside scanned objects (trigger arguments, cron commands, option arrays, setting values, function bodies) are never printed, logged, or written into a report or snapshot; the collector redacts before it stores. A snapshot's header carries no host, project reference or database user. |
 | R10 | **Scanned content is hostile.** Database values, source text and third-party rule packs are untrusted. Every output form encodes for its context (terminal control characters, HTML, Markdown, SQL identifiers). Rule packs are pure data, loaded with a safe parser and size limits. Patterns run in linear time. Output paths stay inside the requested target; the code scan follows no symlink out of its root and executes nothing. |
 
-**Ask first** (*proposed*): the severity, category, area and tie-kind definitions and any rule's severity;
+**Ask first** (confirmed by the owner, 2026-11-25): the severity, category, area and tie-kind definitions and any rule's severity;
 the score definition; the plan's steps and edges; the options catalogue; shim SQL semantics; the exported
 API; a breaking change to any file format, the CLI's flags or its exit codes; the relation and function
 allow-lists of the collector; a new matcher kind; the list of accepted public-source hosts; a new runtime
@@ -325,14 +327,18 @@ names what replaces it.
 default branch and forbid force-pushes; turn on private vulnerability reporting, secret-scanning push
 protection and dependency alerts; reserve the npm package name (`nightwell` was unclaimed on 2026-11-25).
 
-Sign-off: proposals A1–A11; the tech stack, supported Node lines and runtime dependency list; the hard
-rules and the ask-first list as worded above; the repository layout; agent tiers; coverage thresholds; the
-stability policy; where codenames appear and name clearance for "Nightwell" as a public product name
-(package registry, code host, trademark search — the owner's call); sign-off of contributions (*proposed*:
-a developer certificate of origin, no contributor licence agreement); whether the guidance checker skips
-paths this file names for phases not yet built.
+Confirmed by the owner on 2026-11-25, not to be re-asked: Phase 0 running first; additions A1–A11;
+TypeScript on Node.js distributed through npm; the hard rules and the ask-first list as worded above;
+where codenames appear; the throwaway hosted project for the reference snapshot.
 
-Tech stack (*proposed*, confidence medium-high):
+Sign-off (still open): the supported Node lines, the parser and the runtime dependency list; the
+repository layout; agent tiers; coverage thresholds; the stability policy; sign-off of contributions
+(*proposed*: a developer certificate of origin, no contributor licence agreement); whether the guidance
+checker skips paths this file names for phases not yet built. Owner's own actions: name clearance for
+"Nightwell" as a public product name (package registry, code host, trademark search) and the owner
+checklist above.
+
+Tech stack (TypeScript confirmed by the owner, 2026-11-25; the details below it *proposed*):
 
 | Approach | For | Against |
 |---|---|---|
@@ -369,9 +375,9 @@ images and a live tasting room; *proposed*), built as a Supabase CLI project. It
 | 12 | CI workflow `ci-fixture` running the live tests and the oracle; the "changing the fixture" workflow file; `fixture/README.md`; release-notes entry. |
 
 Sign-off: the demo's domain and name; the feature inventory (commits 2–9) against the evidence base — what
-is added or dropped; the manifest format; the pinned versions; whether a throwaway hosted project may
-receive the demo's migrations once per release for the hosted reference snapshot (Phase 2 commit 10) —
-without it, hosted-only shapes stay untested and the report says so.
+is added or dropped; the manifest format; the pinned versions. Already confirmed (owner, 2026-11-25): a
+throwaway hosted project receives the demo's migrations once per release for the hosted reference
+snapshot (Phase 2 commit 10).
 
 Rules for the fixture: all data is synthetic; no real key, token or project reference appears; each
 planted feature is the documented pattern, with its source in the manifest; SQL adapted from a Supabase
@@ -392,7 +398,7 @@ Gul'dan's first form: `nightwell audit` against a database prints a terminal sum
 | 7 | The platform baseline: the identities of every object on an empty project for the versions in the pack manifest, generated from the fixture runtime with no migrations applied. An object in a managed schema is user-added if it is absent from the baseline; when the scanned project's platform fingerprint differs from the manifest, baseline-derived findings drop to `probable` and the report says so. |
 | 8 | The database rule pack: one rule per tie in the fixture's database manifest, each with sources; extensions in three classes (ships with PostgreSQL; third-party open source — "portable where the destination offers it"; Supabase-maintained); exposure computed as (schema in the exposed list) and (effective privileges of the API roles), the list taken from `--exposed-schemas`, else the project config file, else the documented default labelled "assumed". |
 | 9 | `check-rules`: every rule is schema-valid, cites an accepted source and fires on the fixture; every tie in the manifest is hit by a finding; no control is reported as a tie; ids are unique and identical across two fresh boots. |
-| 10 | Variant snapshots: PostgreSQL 15 from a local boot, and — if signed off in Phase 1 — a hosted reference snapshot of the demo applied to a throwaway project with one webhook created through the dashboard. Each is generated by `nightwell snapshot`, redacted, committed with its provenance, and analysed in the offline suite. |
+| 10 | Variant snapshots: PostgreSQL 15 from a local boot, and a hosted reference snapshot of the demo applied to a throwaway project with one webhook created through the dashboard. Each is generated by `nightwell snapshot`, redacted, committed with its provenance, and analysed in the offline suite. |
 | 11 | Renderers (Aluriel) and the CLI contract: the terminal summary (counts by area and severity, findings grouped by area, coverage gaps, the pack version) and the JSON report; results on standard output, everything else on standard error; colour only on a terminal, with the usual environment switches and a flag; deterministic JSON; `--format`, `--out` (never overwriting without `--force`); a configuration file with a published schema, found upward from the working directory, holding paths, ignore globs, exposed schemas, format and gate settings and never credentials, with flag over environment over file; help with examples; `nightwell snapshot`, `audit --snapshot`, `rules list`, `rules explain <id>`, and a listing of every relation the collector reads. |
 | 12 | The public API (`src/index.ts`), which the CLI alone calls, with a committed API report diffed in CI. Proofs: a scan leaves the fixture unchanged, succeeds under a role with no write privilege, triggers neither the shadowing objects nor the canary function, and works through a transaction-mode pooler container; a role lacking each grant produces a named gap, never an empty result; no canary credential and no part of the connection string appears in any output, snapshot, error or stack trace; reformatting does not change a finding id; a generated catalog of 5,000 tables and 10,000 policies scans within the time budget. Golden tests validated against the schemas; a scheduled, non-blocking mutation-testing job on the engine; docs, the "adding or changing a rule" and "adding a collector query" workflow files, release-notes entry. |
 

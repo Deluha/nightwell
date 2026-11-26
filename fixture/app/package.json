@@ -1,5 +1,5 @@
 {
   "name": "cellarbook-app",
   "private": true,
-  "workspaces": ["web", "worker"]
+  "workspaces": ["web", "worker", "nuxt"]
 }

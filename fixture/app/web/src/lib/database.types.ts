@@ -109,12 +109,6 @@ isOneToOne: true
       foreignKeyName: "bottles_cellar_id_fkey"
       columns: ["cellar_id"]
 isOneToOne: false
-      referencedRelation: "cellar_stats"
-      referencedColumns: ["cellar_id"]
-    },{
-      foreignKeyName: "bottles_cellar_id_fkey"
-      columns: ["cellar_id"]
-isOneToOne: false
       referencedRelation: "cellars"
       referencedColumns: ["id"]
     }
@@ -163,12 +157,6 @@ isOneToOne: false
       foreignKeyName: "members_cellar_id_fkey"
       columns: ["cellar_id"]
 isOneToOne: false
-      referencedRelation: "cellar_stats"
-      referencedColumns: ["cellar_id"]
-    },{
-      foreignKeyName: "members_cellar_id_fkey"
-      columns: ["cellar_id"]
-isOneToOne: false
       referencedRelation: "cellars"
       referencedColumns: ["id"]
     }
@@ -200,12 +188,6 @@ isOneToOne: false
                   }
                   Relationships: [
                     {
-      foreignKeyName: "shelves_cellar_id_fkey"
-      columns: ["cellar_id"]
-isOneToOne: false
-      referencedRelation: "cellar_stats"
-      referencedColumns: ["cellar_id"]
-    },{
       foreignKeyName: "shelves_cellar_id_fkey"
       columns: ["cellar_id"]
 isOneToOne: false
@@ -272,11 +254,17 @@ isOneToOne: false
           Views: {
             "cellar_stats": {
                   Row: {
-                    "bottle_count": number | null,"cellar_id": string,"refreshed_as_role": string | null,"total_quantity": number | null
+                    "cellar_id": string,"member_count": number | null,"refreshed_as_role": string | null
                   }
                   ComputedFields: never
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "members_cellar_id_fkey"
+      columns: ["cellar_id"]
+isOneToOne: false
+      referencedRelation: "cellars"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"hostile_view": {
                   Row: {
@@ -299,12 +287,6 @@ isOneToOne: false
                          }
                         Relationships: [
                     {
-      foreignKeyName: "bottles_cellar_id_fkey"
-      columns: ["cellar_id"]
-isOneToOne: false
-      referencedRelation: "cellar_stats"
-      referencedColumns: ["cellar_id"]
-    },{
       foreignKeyName: "bottles_cellar_id_fkey"
       columns: ["cellar_id"]
 isOneToOne: false

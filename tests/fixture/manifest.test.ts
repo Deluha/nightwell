@@ -96,6 +96,27 @@ function databaseProblems(entry: Row, location: Row): string[] {
 const identifyingNames = (objects: Row[]): string[] =>
   objects.flatMap((object) => [object["name"], object["table"]].filter(nonEmpty));
 
+// A probe split into its code, with string literals blanked out, and the exact text of each literal.
+function probeTokens(sql: string): { code: string; literals: Set<string> } {
+  const literals = new Set<string>();
+  let code = "";
+  for (let at = 0; at < sql.length; at++) {
+    if (sql.charAt(at) !== "'") {
+      code += sql.charAt(at);
+      continue;
+    }
+    let text = "";
+    for (at++; at < sql.length; at++) {
+      if (sql.charAt(at) !== "'") text += sql.charAt(at);
+      else if (sql.charAt(at + 1) === "'") text += sql.charAt(++at);
+      else break;
+    }
+    literals.add(text);
+    code += " ";
+  }
+  return { code, literals };
+}
+
 function oracleProblems(oracle: Row, mode: string, objects: Row[]): string[] {
   const problems: string[] = [];
   for (const key of Object.keys(oracle)) {
@@ -104,11 +125,11 @@ function oracleProblems(oracle: Row, mode: string, objects: Row[]): string[] {
   const probed = mode.startsWith("probe-");
   if (probed !== nonEmpty(oracle["probe"])) problems.push("a probe belongs to probe-* modes only");
   if (probed && nonEmpty(oracle["probe"])) {
-    const probe = oracle["probe"];
-    const named = identifiersIn(probe);
-    const names = (name: string) =>
-      named.has(name) || probe.includes(`'${name.replaceAll("'", "''")}'`) || probe.includes(`"${name.replaceAll('"', '""')}"`);
-    if (!identifyingNames(objects).some(names)) {
+    const { code, literals } = probeTokens(oracle["probe"]);
+    const named = identifiersIn(code);
+    // An identifier in the code, or a string literal that is exactly the name; a name inside a longer
+    // literal does not count.
+    if (!identifyingNames(objects).some((name) => named.has(name) || literals.has(name))) {
       problems.push("the probe names none of the entry's own objects");
     }
   }
@@ -231,6 +252,11 @@ describe("fixture/manifest.yaml", () => {
       "the probe names none of the entry's own objects",
     ]);
     expect(oracleProblems({ mode: "probe-same", probe: "select add_bottle_x(1)" }, "probe-same", objects)).toHaveLength(1);
+    // a name inside a longer string literal does not count; a literal that is exactly the name does
+    const inside = oracleProblems({ mode: "probe-same", probe: "select 'call add_bottle now'" }, "probe-same", objects);
+    expect(inside).toEqual(["the probe names none of the entry's own objects"]);
+    expect(oracleProblems({ mode: "probe-same", probe: "select 1 where x = 'add_bottle'" }, "probe-same", objects)).toEqual([]);
+    expect(oracleProblems({ mode: "probe-same", probe: 'select "add_bottle"' }, "probe-same", objects)).toEqual([]);
     expect(oracleProblems({ mode: "load-fails", fails_on: ["auth"] }, "load-fails", objects)).toEqual([]);
     expect(oracleProblems({ mode: "load-fails" }, "load-fails", objects)).toHaveLength(1);
     expect(oracleProblems({ mode: "load-fails", fails_on: [] }, "load-fails", objects)).toHaveLength(1);
@@ -240,6 +266,22 @@ describe("fixture/manifest.yaml", () => {
 
   test("holds each entry to the manifest format", () => {
     expect(entries.flatMap(entryProblems)).toEqual([]);
+  });
+
+  test("keeps every database object in ties only or in controls only", () => {
+    const kinds = new Map<string, { ties: string[]; controls: string[] }>();
+    for (const entry of entries.filter((one) => String(one["id"]).startsWith("db."))) {
+      const location = entry["location"];
+      const objects = isRow(location) && Array.isArray(location["database"]) ? location["database"] : [];
+      for (const object of objects.filter(isRow)) {
+        const key = JSON.stringify(Object.entries(object).sort(([a], [b]) => a.localeCompare(b)));
+        const seen = kinds.get(key) ?? { ties: [], controls: [] };
+        seen[entry["kind"] === "tie" ? "ties" : "controls"].push(String(entry["id"]));
+        kinds.set(key, seen);
+      }
+    }
+    const both = [...kinds.values()].filter((seen) => seen.ties.length > 0 && seen.controls.length > 0);
+    expect(both).toEqual([]);
   });
 
   test("matches the planted markers under fixture/ in both directions", () => {

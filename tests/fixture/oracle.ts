@@ -105,8 +105,8 @@ const NAMEABLE_KINDS = new Set<string>([
   "sequence",
 ]);
 
-export type Status = "loaded" | "failed" | "cascade" | "absent" | "unexplained";
-export type Verdict = "proof" | "cascade" | "excluded" | "mismatch";
+export type Status = "loaded" | "failed" | "shared" | "cascade" | "absent" | "unexplained";
+export type Verdict = "proof" | "shared" | "cascade" | "excluded" | "mismatch";
 export type ProbeComparison = "same" | "differs";
 
 // An object of the manifest, or a thing a statement creates or alters, in the manifest's object shape.
@@ -159,8 +159,9 @@ export interface Judgement {
   entries: EntryJudgement[];
   unexplained: StatementRef[];
   unattributed: StatementRef[];
-  // Failures only on a platform role, in statements no entry owns: the grants the platform's default
-  // privileges add to every object. Listed, never used as proof, never unexplained.
+  // Failures only on a platform role, in statements no entry owns: grants to platform roles that no entry
+  // lists (the platform's default privileges add them to every object, and the dump merges them with the
+  // planted ones). Listed, never used as proof, never unexplained.
   platformAcl: StatementRef[];
 }
 
@@ -659,7 +660,7 @@ export function attribute(statements: Statement[], entries: OracleEntry[]): Attr
 
 type Cause = "dependency" | "platform" | "missing" | "unexplained";
 
-const PRIORITY: Status[] = ["unexplained", "failed", "cascade", "loaded"];
+const PRIORITY: Status[] = ["unexplained", "failed", "shared", "cascade", "loaded"];
 
 // The identifiers a message names, whole: each part of a quoted or bare, schema-qualified name, and the
 // qualified name itself. `"public.t"`, `public.t` and `auth.uid()` name `public`, `t`, `auth` and `uid`,
@@ -712,10 +713,10 @@ const ACL_KINDS = new Set(["GrantStmt", "AlterDefaultPrivilegesStmt"]);
 
 // Judges each entry from the per-statement outcomes of one load pass. `roles` are the roles the dump names
 // that stock lacks. An entry is judged only on the statements whose targets match its own objects: a
-// statement no entry owns is never credited to one. Ties that share one statement and one cause are proven
-// together: a statement that fails naming a platform name proves every tie in it that declares that name,
-// and a control in it is a cascade. A failure only on a platform role in a statement no entry owns goes to
-// `platformAcl`.
+// statement no entry owns is never credited to one. A failing statement that two or more entries own proves
+// none of them (status `shared`): one error cannot tell which entry's reference caused it, so the fixture
+// keeps each tie's failing statement its own. A control in a failing statement is a cascade. A failure only
+// on a platform role in a statement no entry owns goes to `platformAcl`.
 export function judge(
   results: StatementResult[],
   entries: OracleEntry[],
@@ -770,8 +771,12 @@ export function judge(
           platformAcl.push({ index: statement.index, sqlstate });
         } else unattributed.push({ index: statement.index, sqlstate });
       }
-      for (const id of ids) push(id, own.includes(id) || own.length === 0 ? "failed" : "cascade", sqlstate);
-      for (const id of own) {
+      const shared = own.length >= 2;
+      for (const id of ids) {
+        const status = own.includes(id) ? (shared ? "shared" : "failed") : own.length === 0 ? "failed" : "cascade";
+        push(id, status, sqlstate);
+      }
+      for (const id of shared ? [] : own) {
         for (const name of byId.get(id)?.failsOn ?? []) if (identifiers.has(name)) named.get(id)?.add(name);
       }
     } else {
@@ -817,10 +822,10 @@ export function rolesOf(statements: Statement[]): string[] {
 
 const isPlatformSchema = (name: string): boolean => PLATFORM_SCHEMAS.includes(name);
 
-// A failure is proof when it is the entry's own and names one of the accepted platform names; a cascade
-// is recorded and listed, not counted.
+// A failure is proof when it is the entry's own, alone in its statement, and names one of the accepted
+// platform names; a cascade or a shared statement is recorded and listed, not counted.
 function failureVerdict(pass: PassResult, accepted: readonly string[]): Verdict {
-  if (pass.status === "cascade") return "cascade";
+  if (pass.status === "cascade" || pass.status === "shared") return pass.status;
   return pass.status === "failed" && pass.named.some((name) => accepted.includes(name)) ? "proof" : "mismatch";
 }
 
@@ -967,6 +972,7 @@ export function summarize(reports: EntryReport[], platformAcl: StatementRef[]): 
     `oracle: ${String(reports.length)} entries`,
     `verdicts: ${count((report) => report.verdict)}`,
     `statuses: ${count((report) => report.status)}`,
+    `shared (a failing statement several entries own; not proof): ${ids("shared").join(" ")}`,
     `cascade (recorded, not proof): ${ids("cascade").join(" ")}`,
     `not-in-dump (excluded from the claim): ${ids("excluded").join(" ")}`,
     `platform ACL (grants to platform roles that no entry lists; not proof): ${String(platformAcl.length)} statements: ${platformAcl.map((one) => `${String(one.index)}:${one.sqlstate}`).join(" ")}`,

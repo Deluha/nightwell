@@ -38,7 +38,8 @@ dump names that stock lacks (`roles`). Controls must load and behave the same. A
 declares `fails_on`, the platform schemas and roles its own failure must name; an entry that names a
 schema must also fail in the `roles` pass on a schema, so a missing role cannot stand in for a missing
 schema. A tie that loads must give a different probe outcome, rows or SQLSTATE. A failure that only
-follows an earlier failed object is a cascade: listed and committed, not counted as proof. Grants to platform
+follows an earlier failed object is a cascade: listed and committed, not counted as proof. A failing
+statement that two entries own proves neither (`shared`), so the fixture keeps each tie's failure its own. Grants to platform
 roles that no entry lists (most come from the platform's default privileges) are listed apart as
 platform ACL and never prove anything. A mismatch means the manifest is wrong.
 

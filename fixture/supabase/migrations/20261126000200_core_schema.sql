@@ -15,7 +15,6 @@ end
 $$;
 
 -- planted: db.cellars-auth-uid-default (tie) — column default calls auth.uid() and created_by references auth.users
--- source: unverified: auth.uid() appears in policies and in its definition there, not as a default or a check: https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql and https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx (read 2026-11-26)
 create table public.cellars (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -24,7 +23,6 @@ create table public.cellars (
 );
 
 -- planted: db.members-auth-users-fk (tie) — foreign key into auth.users with on delete cascade
--- source: https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx (read 2026-11-26)
 create table public.members (
   cellar_id uuid not null references public.cellars (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -33,14 +31,17 @@ create table public.members (
 );
 
 -- planted: db.profiles-auth-users-fk (tie) — profile id references auth.users with on delete cascade
--- source: https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx (read 2026-11-26)
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   display_name text
 );
 
+-- planted: db.profiles-auth-uid-check (tie) — check constraint calls auth.uid(); passes when no JWT is present (seed, service inserts)
+-- NOT VALID makes it a statement of its own in a dump, apart from any other tie; new rows are still checked.
+alter table public.profiles
+  add constraint profiles_id_self check (auth.uid() is null or id = auth.uid()) not valid;
+
 -- planted: db.profiles-new-user-trigger (tie) — security-definer function and trigger on auth.users create the profile row
--- source: https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx (read 2026-11-26)
 create function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -65,17 +66,12 @@ create table public.bottles (
   -- planted: db.bottles-quantity-check (control) — standard check constraint, no platform dependency
   quantity int not null default 0 check (quantity >= 0),
   -- planted: db.bottles-auth-uid-default (tie) — column default calls auth.uid()
-  -- source: unverified: auth.uid() appears in policies and in its definition there, not as a default or a check: https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql and https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx (read 2026-11-26)
   added_by uuid not null default auth.uid(),
-  -- planted: db.bottles-auth-uid-check (tie) — check constraint calls auth.uid(); passes when no JWT is present (seed, service inserts)
-  -- source: unverified: auth.uid() appears in policies and in its definition there, not as a default or a check: https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql and https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx (read 2026-11-26)
-  constraint bottles_added_by_self check (added_by is not null and (auth.uid() is null or added_by = auth.uid())),
   -- planted: db.bottles-generated-column (control) — generated column with an immutable expression
   vintage_decade int generated always as ((vintage / 10) * 10) stored
 );
 
 -- planted: db.tasting-notes-partitioned (control) — table partitioned by range, with an identity column, foreign keys and two partitions
--- source: https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/partitions.mdx (read 2026-11-26)
 create table public.tasting_notes (
   id bigint generated always as identity,
   bottle_id bigint not null references public.bottles (id),

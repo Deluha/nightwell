@@ -3,12 +3,7 @@
 -- Synthetic demo for Nightwell. Every canary is a fixed synthetic value listed in fixture/canaries.json;
 -- every host ends in .invalid (RFC 2606). No raw control characters appear in this file: escapes only.
 --
--- Adapted from the supabase/supabase docs (Apache-2.0, LICENSE read 2026-11-26). Sources (all read 2026-11-26):
---   WEBHOOK = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/webhooks.mdx
---   SCHED   = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/schedule-functions.mdx
---   SECAPI  = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx
---   XDIR    = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/postgres_fdw.mdx
---   RLS     = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx
+-- Adapted from the supabase/supabase docs (Apache-2.0, LICENSE read 2026-11-26).
 
 -- ---------------------------------------------------------------------------------------------------
 -- Controls
@@ -51,11 +46,15 @@ create table auth_audit.log_entries (
   entry text not null
 );
 
+alter table auth_audit.log_entries enable row level security;
+
 -- planted: db.nearmiss-table-objects (control) — family: storage objects (a user table named objects in a look-alike schema)
 create table auth_audit.objects (
   id bigint generated always as identity primary key,
   name text not null
 );
+
+alter table auth_audit.objects enable row level security;
 
 -- planted: db.nearmiss-role-name-in-text (control) — family: built-in roles (a role-like name only in a comment and a string; no role is created)
 -- The role authenticated_reader does not exist; it is named here only as text.
@@ -112,7 +111,6 @@ revoke execute on function app_private.ungranted_helper() from public, anon, aut
 -- ---------------------------------------------------------------------------------------------------
 
 -- planted: db.canary-webhook-headers-and-path (tie) — canaries in webhook headers (platform-secret-key) and URL path (dictionary-word)
--- source: WEBHOOK (trigger shape executing supabase_functions.http_request) (read 2026-11-26)
 create trigger grape_webhook after insert
 on public.grape_varieties for each row
 execute function supabase_functions.http_request(
@@ -124,7 +122,6 @@ execute function supabase_functions.http_request(
 );
 
 -- planted: db.canary-cron-command (tie) — canary in the cron command (legacy-jwt, in an apikey header)
--- source: SCHED (cron.schedule with net.http_post and an apikey header) (read 2026-11-26)
 select cron.schedule(
   'weekly-grape-sync',
   '0 4 * * 1',
@@ -142,21 +139,18 @@ select cron.schedule(
 );
 
 -- planted: db.canary-role-setting (tie) — canary in a role setting (high-entropy)
--- source: SECAPI (alter role authenticator set pgrst.db_pre_request) shows the pgrst. prefix (read 2026-11-26)
 -- The local postgres role may set only allow-listed prefixes; app.* is refused (42501), pgrst.* is accepted.
 alter role authenticated set pgrst.cellar_partner_key = 'nwc_g11JH4_kk_4wrEW2ePlDnsD_EDipifiL';
 
 -- planted: db.canary-user-mapping-option (tie) — canary in a user-mapping option (dictionary-word as the mapping password)
--- source: XDIR (create user mapping ... options (user, password)) (read 2026-11-26)
 create user mapping for authenticated
   server cellar_archive
   options (user 'archive_reader', password 'cellardoor-canary-password');
 
--- planted: db.canary-server-option (tie) — canary in a foreign-server option (dictionary-word as application_name)
+-- planted: db.canary-server-option (control) — canary in a foreign-server option (dictionary-word as application_name)
 alter server cellar_archive options (add application_name 'cellardoor-canary-password');
 
 -- planted: db.canary-policy-literal (tie) — canary in a policy literal (platform-publishable-key) compared with a request header
--- source: SECAPI#request-information (current_setting('request.headers', true)::json ->> '<header>') (read 2026-11-26)
 create policy "grape_varieties_partner_header" on public.grape_varieties
   as restrictive
   for select to authenticated
@@ -174,12 +168,13 @@ alter table public.grape_varieties add column legacy_token text
   default 'eyJhbGciOiJub25lIiwidHlwIjoiTklHSFRXRUxMLUNBTkFSWSJ9.eyJyb2xlIjoibmlnaHR3ZWxsLWNhbmFyeSIsInJlZiI6Im5vdC1hLXByb2plY3QifQ.bm90LWEtc2lnbmF0dXJl';
 
 -- planted: db.canary-view-literal (control) — canary as a literal column of a security_invoker view (platform-secret-key)
--- source: RLS#expose-a-view-safely (read 2026-11-26)
 create view public.partner_feed
 with (security_invoker = true)
 as
 select id, name, 'sb_secret_NIGHTWELLCANARY0000000001'::text as feed_key
 from public.grape_varieties;
+
+revoke all on public.partner_feed from anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------------
 -- Hostile identifiers and literals (synthetic, harmless to call)
@@ -247,6 +242,8 @@ $$;
 create view public.hostile_view as
 select U&'<script>alert(1)</script> \001B[31mred ::error file=x::nightwell ##[group]g \000Aline2 it''s "q" `t` ../../etc/passwd \\ back'::text as label;
 
+revoke all on public.hostile_view from anon, authenticated;
+
 -- ---------------------------------------------------------------------------------------------------
 -- Shadowing objects in public (canary functions: any call raises an error naming itself)
 -- ---------------------------------------------------------------------------------------------------
@@ -295,7 +292,6 @@ $$;
 grant execute on function app_private.canary_policy_check() to authenticated;
 
 -- planted: db.canary-policy-on-platform-table (tie) — permissive policy on storage.buckets whose expression calls the canary function
--- source: ACCESS policies on storage tables as in commit 4 (storage/security/access-control.mdx, read 2026-11-26)
 create policy "buckets_canary" on storage.buckets
   for select to authenticated
   using (app_private.canary_policy_check());

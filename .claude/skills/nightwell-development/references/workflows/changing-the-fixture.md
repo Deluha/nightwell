@@ -13,17 +13,20 @@ and how to run it: `fixture/README.md`.
 ## Steps
 
 1. Read the public source at a pinned commit and cite it (R3), with the date read, in the manifest.
+   Sources live in the manifest only.
 2. Add the object in a new migration under `fixture/supabase/migrations/`, with a `-- planted: <id> (tie|control)`
    comment; or in code under `fixture/app/` or `fixture/supabase/functions/`, with a `// planted:` comment.
-   Sources are recorded in the manifest only; a new migration comment says nothing about them (the
-   `-- source:` lines already there stay). Never edit a migration that is already committed.
+   A comment never names a source, with no exception; a migration's licence header ("Adapted from …
+   Licence …") is attribution, not a source. Never edit a migration that is already merged.
 3. Data is synthetic. A canary comes only from `fixture/canaries.json` and is allow-listed by exact
    value in `.gitleaks.toml`. Hostile text is written with escapes, never raw control bytes.
 4. Add the entry to `fixture/manifest.yaml`: id, area, kind, location, sources, oracle mode. A source that
    does not show the planted shape is kept with a `note: "Unverified: …"` saying what it does show. A
    `load-fails` entry also lists `fails_on`, the platform schemas and roles its own failure names; a probe
-   mode needs a probe that names one of the entry's own objects. Keep each tie's failure its own: one
-   statement per cause, so no tie is proven by another's error.
+   mode needs a probe that names one of the entry's own objects. Keep each tie's failure its own: the
+   oracle proves nothing for ties that share one failing statement (status `shared`), so give each tie its
+   own statement, for example a check constraint declared `NOT VALID`, which a dump writes apart from its
+   table.
 5. Boot on 17 and on 15 (`npm run fixture:start`, `npm run fixture:start -- --pg 15`) and run the oracle.
 6. A mismatch means the manifest is wrong: correct the entry, never the oracle's verdict rules.
 7. A pin changes only in `fixture/versions.env`, read from the registry on the day, with its digest.

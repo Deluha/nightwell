@@ -70,9 +70,6 @@ const EXPECTED_CASCADES: readonly string[] = [
   "db.cellars-is-public-column",
   "db.fk-indexes",
   "db.foreign-server-postgres-fdw",
-  "db.matview-helper",
-  "db.policy-auth-role",
-  "db.policy-jwt-claim",
   "db.replica-identity-full",
   "db.rls-enabled",
   "db.rpc-search-bottles",
@@ -256,6 +253,10 @@ describe.skipIf(process.env["NIGHTWELL_LIVE"] !== "1")("the oracle", () => {
       .filter((report) => report.verdict === "mismatch")
       .map(({ id, mode, status, sqlstates }) => ({ id, mode, status, sqlstates }));
     expect(mismatches).toEqual([]);
+  });
+
+  test("leaves no failing statement shared between entries", () => {
+    expect(reports.filter((report) => report.verdict === "shared").map((report) => report.id)).toEqual([]);
   });
 
   test("records exactly the committed cascades", () => {

@@ -2,65 +2,41 @@
 -- hook, REST-exposed functions, a PostgREST role setting and a PostgreSQL 15 only block.
 -- Synthetic demo for Nightwell: every host ends in .invalid (RFC 2606) and no value is a credential.
 --
--- Adapted from the supabase/supabase docs (Apache-2.0, LICENSE read 2026-11-26). Sources (all read 2026-11-26):
---   EXT     = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions.mdx
---   XDIR    = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/<name>.mdx
---             (pg_graphql, pgvector, pg_jsonschema, index_advisor, uuid-ossp, pgjwt, plv8, postgres_fdw)
---   WEBHOOK = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/webhooks.mdx
---   SCHED   = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/schedule-functions.mdx
---   CRON    = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/cron/quickstart.mdx
---   VAULT   = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/vault.mdx
---   PGMQ    = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/queues/pgmq.mdx
---   HOOKS   = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/auth-hooks.mdx
---   CAT     = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/auth-hooks/custom-access-token-hook.mdx
---   SECAPI  = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx
---   RLS     = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx
---   FUNC    = https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx
+-- Adapted from the supabase/supabase docs (Apache-2.0, LICENSE read 2026-11-26).
 
 -- ---------------------------------------------------------------------------------------------------
 -- Extensions
 -- ---------------------------------------------------------------------------------------------------
 
 -- planted: db.ext-pg-graphql (tie) — Supabase-maintained extension; the doc enables it without a schema
--- source: XDIR/pg_graphql (read 2026-11-26)
 create extension if not exists pg_graphql;
 
 -- planted: db.ext-vector (tie) — third-party open source extension, installed in the extensions schema
--- source: XDIR/pgvector (read 2026-11-26)
 create extension if not exists vector with schema extensions;
 
 -- planted: db.ext-pg-jsonschema (tie) — Supabase-maintained extension, installed in the extensions schema
--- source: XDIR/pg_jsonschema (read 2026-11-26)
 create extension if not exists pg_jsonschema with schema extensions;
 
 -- planted: db.ext-wrappers (tie) — Supabase-maintained Wrappers framework
--- source: unverified: the foreign data wrapper overview read does not show the create extension statement;
---   the extensions schema is chosen from EXT (read 2026-11-26)
 create extension if not exists wrappers with schema extensions;
 
 -- planted: db.ext-index-advisor (tie) — Supabase-maintained extension; cascade also creates hypopg
--- source: XDIR/index_advisor (the doc examples use `create extension if not exists index_advisor cascade`) (read 2026-11-26)
 create extension if not exists index_advisor with schema extensions cascade;
 
 -- planted: db.ext-pg-cron (tie) — scheduler; the schema it creates is cron
--- source: unverified: the pg_cron page read only links to the Cron docs, which do not show the create statement (read 2026-11-26)
 create extension if not exists pg_cron;
 
 -- planted: db.ext-pgmq (tie) — queue extension; creates its own pgmq schema
--- source: PGMQ (create extension pgmq) (read 2026-11-26)
 create extension if not exists pgmq;
 
 -- planted: db.ext-uuid-ossp (control) — ships with PostgreSQL
--- source: XDIR/uuid-ossp (create extension "uuid-ossp" with schema extensions) (read 2026-11-26)
 create extension if not exists "uuid-ossp" with schema extensions;
 
 -- planted: db.ext-pgcrypto (control) — ships with PostgreSQL
--- source: EXT (extensions schema) (read 2026-11-26)
 create extension if not exists pgcrypto with schema extensions;
 
 -- planted: db.ext-postgres-fdw (control) — ships with PostgreSQL
--- source: XDIR/postgres_fdw (read 2026-11-26)
--- The doc creates it without a schema; this keeps public clean, as EXT advises.
+-- The doc creates it without a schema; this keeps public clean.
 create extension if not exists postgres_fdw with schema extensions;
 
 -- ---------------------------------------------------------------------------------------------------
@@ -68,7 +44,6 @@ create extension if not exists postgres_fdw with schema extensions;
 -- ---------------------------------------------------------------------------------------------------
 
 -- planted: db.extensions-qualified-default (tie) — column default calls extensions.uuid_generate_v4(); check calls extensions.jsonb_matches_schema()
--- source: XDIR/uuid-ossp and XDIR/pg_jsonschema (read 2026-11-26)
 create table public.shelves (
   id uuid primary key default extensions.uuid_generate_v4(),
   cellar_id uuid not null references public.cellars (id) on delete cascade,
@@ -85,14 +60,14 @@ create table public.shelves (
 create index shelves_cellar_id_idx on public.shelves (cellar_id);
 
 alter table public.shelves enable row level security;
-revoke all on table public.shelves from anon;
+revoke all on table public.shelves from anon, authenticated;
+grant select on table public.shelves to authenticated;
 
 create policy "shelves_select_member" on public.shelves
   for select to authenticated
   using ((select app_private.is_cellar_member(cellar_id)));
 
 -- planted: db.vector-column (tie) — vector column typed through the extensions schema
--- source: XDIR/pgvector (embedding extensions.vector(n)) (read 2026-11-26)
 -- It sits in its own table so that bottles fails to load only on its auth references, and this table only
 -- on the extensions schema.
 create table public.bottle_embeddings (
@@ -100,8 +75,10 @@ create table public.bottle_embeddings (
   flavour_embedding extensions.vector(3)
 );
 
+alter table public.bottle_embeddings enable row level security;
+revoke all on table public.bottle_embeddings from anon, authenticated;
+
 -- planted: db.function-pgcrypto-mixed (tie) — pgcrypto's gen_random_bytes called through the extensions schema, next to a core function
--- source: EXT (extensions schema) (read 2026-11-26)
 create function public.new_share_code()
 returns text
 language sql
@@ -115,7 +92,6 @@ $$;
 -- ---------------------------------------------------------------------------------------------------
 
 -- planted: db.webhook-trigger (tie) — database webhook: trigger executing supabase_functions.http_request
--- source: WEBHOOK (read 2026-11-26)
 -- The host never resolves; no secret is sent in the headers.
 create trigger new_bottle_webhook after insert
 on public.bottles for each row
@@ -128,11 +104,9 @@ execute function supabase_functions.http_request(
 );
 
 -- planted: db.vault-secret (tie) — Vault secret created by SQL; the value is a synthetic non-credential
--- source: VAULT (vault.create_secret(secret, name, description)) (read 2026-11-26)
 select vault.create_secret('not-a-real-token', 'restock_token', 'Synthetic placeholder, not a credential');
 
 -- planted: db.cron-job-http-post (tie) — pg_cron job calling net.http_post with a Vault-held key
--- source: SCHED (cron.schedule with net.http_post and vault.decrypted_secrets) and CRON (read 2026-11-26)
 -- The secret goes in the `apikey` header, as the doc shows. The host never resolves.
 select cron.schedule(
   'nightly-restock',
@@ -151,7 +125,6 @@ select cron.schedule(
 );
 
 -- planted: db.pgmq-queue (tie) — queue created and written to through pgmq
--- source: PGMQ (pgmq.create, pgmq.send) (read 2026-11-26)
 select pgmq.create('restock_requests');
 
 create function public.request_restock(bottle bigint)
@@ -171,7 +144,6 @@ grant execute on function public.request_restock(bigint) to service_role;
 -- ---------------------------------------------------------------------------------------------------
 
 -- planted: db.foreign-server-postgres-fdw (control) — postgres_fdw server, user mapping and foreign table; never queried (the host does not resolve)
--- source: XDIR/postgres_fdw (read 2026-11-26)
 create server cellar_archive
   foreign data wrapper postgres_fdw
   options (host 'archive.invalid', port '5432', dbname 'archive');
@@ -196,7 +168,6 @@ revoke all on table public.archived_bottles from anon, authenticated;
 -- ---------------------------------------------------------------------------------------------------
 
 -- planted: db.auth-hook-custom-access-token (tie) — Postgres function used as the custom access token hook (declared in config.jsonc auth.hook.custom_access_token)
--- source: CAT (hook shape, add claims) and HOOKS (grants, config entry) (read 2026-11-26)
 create function public.custom_access_token_hook(event jsonb)
 returns jsonb
 language plpgsql
@@ -235,7 +206,6 @@ create policy "members_select_auth_admin" on public.members
 -- ---------------------------------------------------------------------------------------------------
 
 -- planted: db.rpc-search-bottles (tie) — REST-exposed function, security invoker, execute granted to authenticated
--- source: SECAPI#grant-access-explicitly (function grants) and FUNC (security invoker is the default) (read 2026-11-26)
 create function public.search_bottles(q text)
 returns setof public.bottles
 language sql
@@ -250,7 +220,6 @@ revoke execute on function public.search_bottles(text) from public, anon;
 grant execute on function public.search_bottles(text) to authenticated;
 
 -- planted: db.rpc-cellar-summary (tie) — REST-exposed security-definer function with an empty search_path
--- source: FUNC (security definer, search_path) and SECAPI#grant-access-explicitly (read 2026-11-26)
 create function public.cellar_summary(cellar uuid)
 returns table (bottle_count bigint, total_quantity bigint)
 language plpgsql
@@ -272,7 +241,6 @@ revoke execute on function public.cellar_summary(uuid) from public, anon;
 grant execute on function public.cellar_summary(uuid) to authenticated;
 
 -- planted: db.rpc-anon-execute (tie) — function executable by the anon role through an explicit grant
--- source: SECAPI#grant-access-explicitly (grant execute on function ... to anon) (read 2026-11-26)
 create function public.public_cellar_count()
 returns bigint
 language sql
@@ -290,7 +258,6 @@ grant execute on function public.public_cellar_count() to anon, authenticated;
 -- ---------------------------------------------------------------------------------------------------
 
 -- planted: db.pgrst-pre-request (tie) — PostgREST pre-request function set on the authenticator role
--- source: SECAPI (pre-request function: alter role authenticator set pgrst.db_pre_request) (read 2026-11-26)
 create function public.check_request()
 returns void
 language plpgsql
@@ -315,7 +282,6 @@ notify pgrst, 'reload config';
 -- ---------------------------------------------------------------------------------------------------
 
 -- planted: db.pg15-only-pgjwt-plv8 (tie) — pgjwt and plv8, created only below PostgreSQL 16; the block does nothing on 17
--- source: XDIR/pgjwt (create extension pgjwt schema extensions; extensions.sign) and XDIR/plv8 (create extension plv8; language plv8) (read 2026-11-26)
 do $do$
 begin
   if current_setting('server_version_num')::int < 160000 then

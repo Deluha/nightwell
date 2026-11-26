@@ -86,13 +86,13 @@ entries:
     expected_rules: []
     pending: false
     oracle: { mode: load-fails, fails_on: [auth] }
-  - id: db.bottles-auth-uid-check
+  - id: db.profiles-auth-uid-check
     area: auth
     kind: tie
-    description: "Check constraint bottles_added_by_self calls auth.uid(); it passes when no JWT is present"
+    description: "Check constraint profiles_id_self calls auth.uid(); it passes when no JWT is present; declared NOT VALID so it is a statement of its own in a dump"
     location:
       database:
-        - { object: constraint, schema: public, table: bottles, name: bottles_added_by_self }
+        - { object: constraint, schema: public, table: profiles, name: profiles_id_self }
     sources:
       - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
@@ -154,7 +154,7 @@ entries:
   - id: db.rls-enabled
     area: database
     kind: control
-    description: "Row level security enabled on the five core tables; standard PostgreSQL"
+    description: "Row level security enabled on the five core tables and the two tasting-note partitions; standard PostgreSQL"
     location:
       database:
         - { object: rls, schema: public, table: cellars }
@@ -162,6 +162,8 @@ entries:
         - { object: rls, schema: public, table: profiles }
         - { object: rls, schema: public, table: bottles }
         - { object: rls, schema: public, table: tasting_notes }
+        - { object: rls, schema: public, table: tasting_notes_2025 }
+        - { object: rls, schema: public, table: tasting_notes_2026 }
     sources:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
     expected_rules: []
@@ -201,6 +203,8 @@ entries:
         - { object: grant, on: table, schema: public, name: cellars, role: authenticated, privilege: select }
         - { object: grant, on: table, schema: public, name: bottles, role: authenticated, privilege: delete }
         - { object: grant, on: table, schema: public, name: profiles, role: authenticated, privilege: update }
+        - { object: grant, on: table, schema: public, name: members, role: authenticated, privilege: select }
+        - { object: grant, on: table, schema: public, name: tasting_notes, role: authenticated, privilege: select }
         - { object: grant, on: table, schema: public, name: tasting_notes, role: service_role, privilege: select }
     sources:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
@@ -280,10 +284,10 @@ entries:
   - id: db.policy-jwt-claim
     area: auth
     kind: tie
-    description: "Policy on cellars reads an app_metadata claim through auth.jwt()"
+    description: "Policy on profiles reads an app_metadata claim through auth.jwt()"
     location:
       database:
-        - { object: policy, schema: public, table: cellars, name: cellars_admin_all }
+        - { object: policy, schema: public, table: profiles, name: profiles_admin_all }
     sources:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/custom-claims-and-role-based-access-control-rbac.mdx", read: 2026-11-26 }
@@ -293,10 +297,10 @@ entries:
   - id: db.policy-auth-role
     area: auth
     kind: tie
-    description: "Policy on bottles calls auth.role()"
+    description: "Policy on profiles calls auth.role()"
     location:
       database:
-        - { object: policy, schema: public, table: bottles, name: bottles_insert_member }
+        - { object: policy, schema: public, table: profiles, name: profiles_insert_self }
     sources:
       - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
     note: "The current docs read do not show auth.role(); the source is the helper definition, whose comment marks it deprecated."
@@ -500,7 +504,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/postgres-changes.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: probe-same, probe: "select relreplident from pg_class where oid = 'public.bottles'::regclass" }
+    oracle: { mode: probe-same, probe: "select relreplident from pg_class where relnamespace = 'public'::regnamespace and relname = 'bottles'" }
   - id: db.broadcast-changes-trigger
     area: realtime
     kind: tie
@@ -787,7 +791,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/postgres_fdw.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: probe-same, probe: "select count(*) from pg_foreign_table where ftrelid = 'public.archived_bottles'::regclass" }
+    oracle: { mode: probe-same, probe: "select count(*) from pg_foreign_table f join pg_class c on c.oid = f.ftrelid where c.relnamespace = 'public'::regnamespace and c.relname = 'archived_bottles'" }
   - id: db.auth-hook-custom-access-token
     area: auth
     kind: tie
@@ -898,7 +902,7 @@ entries:
     sources: []
     expected_rules: []
     pending: false
-    oracle: { mode: probe-same, probe: "select obj_description('public.grape_varieties'::regclass, 'pg_class')" }
+    oracle: { mode: probe-same, probe: "select obj_description(c.oid, 'pg_class') from pg_class c where c.relnamespace = 'public'::regnamespace and c.relname = 'grape_varieties'" }
   - id: db.control-function-returns-helper-text
     area: auth
     kind: control
@@ -1040,7 +1044,7 @@ entries:
     oracle: { mode: not-in-dump }
   - id: db.canary-server-option
     area: database
-    kind: tie
+    kind: control
     description: "Foreign server cellar_archive holds a canary application_name option"
     location:
       database:
@@ -1073,7 +1077,7 @@ entries:
     sources: []
     expected_rules: []
     pending: false
-    oracle: { mode: probe-same, probe: "select col_description(a.attrelid, a.attnum) is not null from pg_catalog.pg_attribute a where a.attrelid = 'public.grape_varieties'::regclass and a.attname = 'name'" }
+    oracle: { mode: probe-same, probe: "select col_description(a.attrelid, a.attnum) is not null from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid where c.relnamespace = 'public'::regnamespace and c.relname = 'grape_varieties' and a.attname = 'name'" }
   - id: db.canary-column-default
     area: database
     kind: control
@@ -1092,7 +1096,8 @@ entries:
     location:
       database:
         - { object: view, schema: public, name: partner_feed }
-    sources: []
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
     oracle: { mode: probe-same, probe: "select count(*) from public.partner_feed" }

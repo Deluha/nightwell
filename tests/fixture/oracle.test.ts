@@ -539,6 +539,51 @@ describe("judge", () => {
   });
 });
 
+describe("a statement several entries own", () => {
+  const twoTies = oracleEntries([
+    failing("tie-a", "tie", ["auth"], { object: "column-default", schema: "public", table: "t", name: "who" }),
+    failing("tie-b", "tie", ["auth"], { object: "constraint", schema: "public", table: "t", name: "ok_c" }),
+    entry("control-t", "control", "probe-same", { object: "table", schema: "public", name: "t" }),
+  ]);
+  const noAuth = fail("3F000", 'schema "auth" does not exist');
+  const verdictFor = (judgement: Judgement, id: string) =>
+    verdictOf(entryOf(id, twoTies), { bare: passOf(judgement, id), roles: passOf(judgement, id) });
+
+  test("proves none of the ties in it: each is shared, and a control in it is a cascade", () => {
+    const judgement = run([noAuth], twoTies);
+    expect(statusOf(judgement, "tie-a")).toBe("shared");
+    expect(statusOf(judgement, "tie-b")).toBe("shared");
+    expect(passOf(judgement, "tie-a").named).toEqual([]);
+    expect(verdictFor(judgement, "tie-a")).toBe("shared");
+    expect(verdictFor(judgement, "tie-b")).toBe("shared");
+    expect(statusOf(judgement, "control-t")).toBe("cascade");
+  });
+
+  test("a tie alone in its failing statement is proven", () => {
+    const alone = twoTies.filter((one) => one.id !== "tie-b");
+    const judgement = run([noAuth], alone);
+    expect(statusOf(judgement, "tie-a")).toBe("failed");
+    expect(verdictFor(judgement, "tie-a")).toBe("proof");
+  });
+
+  test("a failure of its own elsewhere outranks a shared statement", () => {
+    const entries = oracleEntries([
+      failing(
+        "tie-a",
+        "tie",
+        ["auth"],
+        { object: "column-default", schema: "public", table: "t", name: "who" },
+        { object: "rls", schema: "public", table: "t" },
+      ),
+      failing("tie-b", "tie", ["auth"], { object: "constraint", schema: "public", table: "t", name: "ok_c" }),
+    ]);
+    const judgement = run([noAuth, noAuth], entries);
+    expect(statusOf(judgement, "tie-a")).toBe("failed");
+    expect(passOf(judgement, "tie-a").named).toEqual(["auth"]);
+    expect(statusOf(judgement, "tie-b")).toBe("shared");
+  });
+});
+
 describe("what a failure must name", () => {
   const roleless = fail("42704", 'role "authenticated" does not exist');
   const noAuth = fail("3F000", 'schema "auth" does not exist');
@@ -662,6 +707,12 @@ describe("verdictOf", () => {
     expect(verdictOf(entry, { bare: at("cascade"), roles: at("failed", "auth") })).toBe("cascade");
   });
 
+  test("load-fails: a shared statement is listed, not proof, in either pass", () => {
+    const entry = modeOf("load-fails", ["auth"]);
+    expect(verdictOf(entry, same(at("shared")))).toBe("shared");
+    expect(verdictOf(entry, { bare: at("failed", "auth"), roles: at("shared") })).toBe("shared");
+  });
+
   test("probe-same: loaded with equal rows is proof, a cascade is listed, the rest is a mismatch", () => {
     const loaded = same(at("loaded"));
     expect(verdictOf(modeOf("probe-same"), loaded, "same")).toBe("proof");
@@ -782,6 +833,7 @@ describe("summarize", () => {
       "oracle: 3 entries",
       "verdicts: proof 1, cascade 1, excluded 1",
       "statuses: failed 1, cascade 1, absent 1",
+      "shared (a failing statement several entries own; not proof): ",
       "cascade (recorded, not proof): b",
       "not-in-dump (excluded from the claim): c",
       "platform ACL (grants to platform roles that no entry lists; not proof): 1 statements: 7:42704",

@@ -8,6 +8,7 @@
 | `tests/cli/`           | The command-line interface                                               |
 | `tests/checkers/`      | The repository checkers in `scripts/checkers/`                           |
 | `tests/hosted-verify/` | The shape of the hosted verification queries in `scripts/hosted-verify/` |
+| `tests/fixture/`       | The fixture's pins and canaries; live tests of the started fixture       |
 
 ## Running
 

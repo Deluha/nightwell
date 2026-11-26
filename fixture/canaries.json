@@ -1,0 +1,11 @@
+{
+  "canaries_version": 1,
+  "canaries": [
+    {
+      "id": "platform-secret-key",
+      "kind": "platform-key",
+      "value": "sb_secret_NIGHTWELLCANARY0000000001",
+      "note": "Synthetic. Supabase's documentation (supabase/supabase apps/docs/content/guides/getting-started/api-keys.mdx, read 2026-11-26) documents only the sb_secret_ prefix, so the body follows no published format."
+    }
+  ]
+}

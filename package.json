@@ -36,6 +36,9 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "verify": "node scripts/verify.ts",
+    "fixture:start": "bash scripts/fixture/start.sh",
+    "fixture:reset": "bash scripts/fixture/reset.sh",
+    "fixture:stop": "bash scripts/fixture/stop.sh",
     "lint:package": "npm run build && publint --strict && attw --pack . --profile esm-only"
   },
   "devDependencies": {

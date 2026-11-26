@@ -29,7 +29,7 @@ regex = '''\b[a-z]{20}\b'''
 # Entropy cannot tell a reference from a long English word, so every such word
 # is reported; a real word that trips the rule is added here.
 [[rules.allowlists]]
-regexes = ['''^(internationalization|uncharacteristically|counterrevolutionary|electroencephalogram)$''']
+regexes = ['''^(internationalization|uncharacteristically|counterrevolutionary|electroencephalogram|developercertificate)$''']
 
 [[rules]]
 id = "nightwell-platform-key"

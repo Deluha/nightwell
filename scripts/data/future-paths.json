@@ -1,8 +1,4 @@
 {
-  ".github/pull_request_template.md": "Phase 0, commit 8",
-  "docs/": "Phase 0, commit 8",
-  "docs/threat-model.md": "Phase 0, commit 8",
-  "docs/stability.md": "Phase 0, commit 8",
   ".claude/settings.json": "Phase 0, commit 9",
   "scripts/hosted-verify/": "Phase 0, commit 10",
   "fixture/": "Phase 1",

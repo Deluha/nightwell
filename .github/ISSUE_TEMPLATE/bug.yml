@@ -1,0 +1,29 @@
+name: Bug
+description: Nightwell crashed or behaved differently from its documentation
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never attach a catalog snapshot or a report from a real project, and never paste a connection string or a key: issues are public.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected and what you got. Reduce output to the lines that matter.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Nightwell version
+      description: The output of nightwell --version
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Node.js version and the PostgreSQL major version scanned
+    validations:
+      required: false

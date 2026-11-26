@@ -1,0 +1,29 @@
+name: Supabase change
+description: Supabase changed something that Nightwell detects or relies on
+labels: ["platform"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never attach a catalog snapshot or a report from a real project, and never paste a connection string or a key: issues are public.
+  - type: textarea
+    id: change
+    attributes:
+      label: What changed
+      description: The change, and the versions before and after if you know them
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Public source
+      description: A link to a changelog, documentation page or commit
+    validations:
+      required: true
+  - type: textarea
+    id: effect
+    attributes:
+      label: Effect on Nightwell
+      description: Which rule, snapshot or document is affected, if you know
+    validations:
+      required: false

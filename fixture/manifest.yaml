@@ -35,10 +35,11 @@ entries:
   - id: db.profiles-auth-users-fk
     area: auth
     kind: tie
-    description: "Foreign key from profiles.id to auth.users with on delete cascade"
+    description: "Foreign key from profiles.id to auth.users with on delete cascade; the same reference from tasting_notes.author_id"
     location:
       database:
         - { object: constraint, schema: public, table: profiles, name: profiles_id_fkey }
+        - { object: constraint, schema: public, table: tasting_notes, name: tasting_notes_author_id_fkey }
     sources:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx", read: 2026-11-26 }
     expected_rules: []
@@ -56,7 +57,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: not-in-dump }
+    oracle: { mode: probe-differs, probe: "select count(*) from pg_trigger where tgname = 'on_auth_user_created' and not tgisinternal" }
   - id: db.bottles-quantity-check
     area: auth
     kind: control
@@ -244,9 +245,10 @@ entries:
   - id: db.policy-uid-select-wrapped
     area: auth
     kind: tie
-    description: "Policies on profiles use the (select auth.uid()) form"
+    description: "Policies on profiles and cellars use the (select auth.uid()) form"
     location:
       database:
+        - { object: policy, schema: public, table: cellars, name: cellars_insert_creator }
         - { object: policy, schema: public, table: profiles, name: profiles_select_own }
         - { object: policy, schema: public, table: profiles, name: profiles_update_own }
     sources:
@@ -264,6 +266,7 @@ entries:
         - { object: policy, schema: public, table: bottles, name: bottles_select_member }
         - { object: policy, schema: public, table: bottles, name: bottles_update_member }
         - { object: policy, schema: public, table: tasting_notes, name: tasting_notes_select_member }
+        - { object: policy, schema: public, table: shelves, name: shelves_select_member }
     sources:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
     expected_rules: []
@@ -367,7 +370,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: probe-differs, probe: "select to_regprocedure('auth.uid()') is not null and to_regprocedure('auth.role()') is not null" }
   - id: db.function-dynamic-sql
     area: auth
     kind: tie
@@ -379,7 +382,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: probe-differs, probe: "select to_regprocedure('auth.uid()') is not null" }
   - id: db.function-plain-sql
     area: auth
     kind: control
@@ -518,7 +521,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/broadcast.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: probe-differs, probe: "select to_regprocedure('realtime.send(jsonb,text,text,boolean)') is not null" }
   - id: db.topic-parser
     area: realtime
     kind: control
@@ -706,8 +709,8 @@ entries:
     oracle: { mode: load-fails }
   - id: db.function-pgcrypto-mixed
     area: database
-    kind: control
-    description: "Function new_share_code calls extensions.gen_random_bytes next to the core gen_random_uuid"
+    kind: tie
+    description: "Function new_share_code calls gen_random_bytes qualified with the extensions schema, next to the core gen_random_uuid"
     location:
       database:
         - { object: function, schema: public, name: new_share_code, args: "" }
@@ -715,7 +718,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: probe-same, probe: "select length(public.new_share_code())" }
+    oracle: { mode: probe-differs, probe: "select to_regprocedure('extensions.gen_random_bytes(integer)') is not null" }
   - id: db.webhook-trigger
     area: edge-functions
     kind: tie
@@ -765,7 +768,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/queues/pgmq.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: probe-differs, probe: "select count(*) > 0 from pg_proc where pronamespace = to_regnamespace('pgmq') and proname = 'send'" }
   - id: db.foreign-server-postgres-fdw
     area: database
     kind: control
@@ -779,7 +782,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/postgres_fdw.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: not-in-dump }
+    oracle: { mode: probe-same, probe: "select count(*) from pg_foreign_table where ftrelid = 'public.archived_bottles'::regclass" }
   - id: db.auth-hook-custom-access-token
     area: auth
     kind: tie
@@ -849,7 +852,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: probe-differs, probe: "select count(*) from pg_db_role_setting s join pg_roles r on r.oid = s.setrole cross join lateral unnest(s.setconfig) as kv where r.rolname = 'authenticator' and split_part(kv, '=', 1) = 'pgrst.db_pre_request'" }
   - id: db.pg15-only-pgjwt-plv8
     area: database
     kind: tie
@@ -1120,7 +1123,7 @@ entries:
   - id: db.hostile-policy-names
     area: database
     kind: control
-    description: "Policies on the markup-named table named with markup, a terminal escape, quotes and path separators; each names authenticated"
+    description: "Policies on the markup-named table named with markup, a terminal escape, quotes and path separators; standard PostgreSQL only"
     location:
       database:
         - { object: policy, schema: public, table: "<script>alert(1)</script>", name: "<script>alert(1)</script>" }
@@ -1130,7 +1133,7 @@ entries:
     sources: []
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: probe-same, probe: "select count(*) from pg_catalog.pg_policy p join pg_catalog.pg_class c on c.oid = p.polrelid where c.relname = '<script>alert(1)</script>'" }
   - id: db.hostile-function-names
     area: database
     kind: control

@@ -210,13 +210,13 @@ comment on table public."<script>alert(1)</script>" is
 
 -- planted: db.hostile-policy-names (control) — policy names with markup, a terminal escape, quotes and path separators
 create policy "<script>alert(1)</script>" on public."<script>alert(1)</script>"
-  for select to authenticated using (false);
+  for select to public using (false);
 create policy U&"\001B[31mpolicy" on public."<script>alert(1)</script>"
-  for select to authenticated using (false);
+  for select to public using (false);
 create policy "it's ""quoted"" `tick`" on public."<script>alert(1)</script>"
-  for select to authenticated using (false);
+  for select to public using (false);
 create policy "../../etc/passwd\back" on public."<script>alert(1)</script>"
-  for select to authenticated using (false);
+  for select to public using (false);
 
 -- planted: db.hostile-function-names (control) — function names with CI syntax, markup, a terminal escape and quotes
 create function public."##[group]fn"()

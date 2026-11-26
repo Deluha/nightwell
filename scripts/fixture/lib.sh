@@ -16,38 +16,53 @@ ref() {
 # repo_tag NAME: the local name, repo:tag.
 repo_tag() { local r; r="$(ref "$1")"; printf '%s\n' "${r%%@*}"; }
 
-# pulled_ref NAME: the name the image is pulled by, registry/repo@sha256:digest.
-pulled_ref() {
+# pulled_refs NAME: the names the image is pulled by, one per line, registry/repo@sha256:digest, the
+# preferred first. A stock image has a second name on mirror.gcr.io: the mirror is safe because the pull
+# is by digest and the same digest is verified afterwards.
+pulled_refs() {
   local r repo digest
   r="$(ref "$1")"
   repo="${r%%:*}"
   digest="${r##*@}"
   case "$repo" in
     supabase/*) printf 'ghcr.io/%s@%s\n' "$repo" "$digest" ;;
-    *) printf 'docker.io/library/%s@%s\n' "$repo" "$digest" ;;
+    *)
+      printf 'docker.io/library/%s@%s\n' "$repo" "$digest"
+      printf 'mirror.gcr.io/library/%s@%s\n' "$repo" "$digest"
+      ;;
   esac
 }
 
-# digest_present NAME: does the local image carry the pinned digest under the pulled name?
-digest_present() {
+# present_ref NAME: prints the first pulled name of NAME whose local image carries the pinned digest.
+present_ref() {
   local pulled
-  pulled="$(pulled_ref "$1")"
-  docker image inspect --format '{{json .RepoDigests}}' "$pulled" 2>/dev/null | grep -qF "\"$pulled\""
+  while IFS= read -r pulled; do
+    if docker image inspect --format '{{json .RepoDigests}}' "$pulled" 2>/dev/null | grep -qF "\"$pulled\""; then
+      printf '%s\n' "$pulled"
+      return 0
+    fi
+  done < <(pulled_refs "$1")
+  return 1
 }
+
+# digest_present NAME: does the local image carry the pinned digest under any of its pulled names?
+digest_present() { present_ref "$1" >/dev/null; }
 
 # pull_pinned NAME: pull by digest, re-tag under the names the CLI looks up, verify the digest.
 pull_pinned() {
   local name="$1" pulled local_name attempt
-  pulled="$(pulled_ref "$name")"
   local_name="$(repo_tag "$name")"
   if ! digest_present "$name"; then
-    for attempt in 1 2 3; do
-      docker pull --quiet "$pulled" >/dev/null && break
-      [ "$attempt" -lt 3 ] || { echo "fixture: could not pull $pulled" >&2; return 1; }
-      sleep $((attempt * 5))
-    done
+    while IFS= read -r pulled; do
+      for attempt in 1 2 3; do
+        docker pull --quiet "$pulled" >/dev/null && break
+        [ "$attempt" -lt 3 ] || { echo "fixture: could not pull $pulled" >&2; break; }
+        sleep $((attempt * 5))
+      done
+      digest_present "$name" && break
+    done < <(pulled_refs "$name")
   fi
-  digest_present "$name" || { echo "fixture: $pulled does not carry its pinned digest" >&2; return 1; }
+  pulled="$(present_ref "$name")" || { echo "fixture: no pulled name of $name carries its pinned digest" >&2; return 1; }
   docker tag "$pulled" "$local_name"
   case "$local_name" in
     supabase/*) docker tag "$pulled" "public.ecr.aws/$local_name" ;;

@@ -18,6 +18,19 @@ is all-pass; read the whole table. What each checker parses is in `checkers.md`.
 
 Never skip a hook. A hook that fails wrongly is fixed through the changing-guidance workflow.
 
+## Session permissions and hooks
+
+`.claude/settings.json` holds the session's permissions and hooks; changing it is ask-first.
+
+- **Allow:** the verify command and its parts, and read-only git commands.
+- **Ask:** edits to guidance, CI, hooks, scripts and the package manifest; `psql`, `pg_dump` and package
+  installs.
+- **Deny:** reading environment files; any command naming the platform's management interface; CLI
+  commands that log in, link to or act on a hosted project; skipping hooks; force-pushes.
+- `.claude/hooks/session-start.sh` installs the development tools at the start of a cloud session.
+- `.claude/hooks/post-edit-lint.js` lints and format-checks the file an edit touched and feeds
+  failures back to the session.
+
 ## Workflows
 
 | Workflow                                   | Does                                                                                                                            |

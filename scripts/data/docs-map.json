@@ -10,7 +10,13 @@
     "doc": ".claude/skills/nightwell-development/references/checkers.md"
   },
   {
-    "area": [".githooks/**", ".github/workflows/**", ".gitleaks.toml"],
+    "area": [
+      ".githooks/**",
+      ".github/workflows/**",
+      ".gitleaks.toml",
+      ".claude/settings.json",
+      ".claude/hooks/**"
+    ],
     "doc": ".claude/skills/nightwell-development/references/qa-and-ci.md"
   },
   {

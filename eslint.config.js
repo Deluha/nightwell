@@ -15,7 +15,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["bin/**/*.js", "*.config.js"],
+    files: ["bin/**/*.js", ".claude/hooks/**/*.js", "*.config.js"],
     ...tseslint.configs.disableTypeChecked,
   },
   prettier,

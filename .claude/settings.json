@@ -1,0 +1,78 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run verify)",
+      "Bash(npm run lint)",
+      "Bash(npm run typecheck)",
+      "Bash(npm test)",
+      "Bash(npm run test:coverage)",
+      "Bash(node scripts/check-conventions.ts)",
+      "Bash(node scripts/check-guidance-integrity.ts)",
+      "Bash(node scripts/check-docs-sync.ts *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ],
+    "ask": [
+      "Edit(CLAUDE.md)",
+      "Edit(.claude/**)",
+      "Edit(.github/**)",
+      "Edit(.githooks/**)",
+      "Edit(.gitleaks.toml)",
+      "Edit(scripts/**)",
+      "Edit(package.json)",
+      "Bash(psql *)",
+      "Bash(pg_dump *)",
+      "Bash(npm install *)",
+      "Bash(npm i *)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Bash(*api.supabase.com*)",
+      "Bash(supabase login *)",
+      "Bash(supabase link *)",
+      "Bash(supabase projects *)",
+      "Bash(supabase secrets *)",
+      "Bash(supabase db push *)",
+      "Bash(supabase db pull *)",
+      "Bash(supabase db dump *)",
+      "Bash(supabase db remote *)",
+      "Bash(supabase migration repair *)",
+      "Bash(supabase functions deploy *)",
+      "Bash(supabase * --linked*)",
+      "Bash(supabase * --db-url*)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git commit * --no-verify*)",
+      "Bash(git push --force*)",
+      "Bash(git push * --force*)",
+      "Bash(git push -f *)",
+      "Bash(git config core.hooksPath*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-edit-lint.js"
+          }
+        ]
+      }
+    ]
+  }
+}

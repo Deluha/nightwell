@@ -1,7 +1,9 @@
 # Fails a pull request from outside the maintainers that touches a protected
 # path until a maintainer has read the diff on the code host and applied the
 # label. It runs the base branch's code only and never checks out the pull
-# request; a new push removes the label, so every revision is read.
+# request; a new push removes the label, so every revision is read. Require the
+# "Path guard" check on the default branch next to "CI gate": a pull request can
+# change the CI workflows, but not this one, which always runs from the base.
 name: path-guard
 
 on:
@@ -12,14 +14,21 @@ permissions: {}
 
 jobs:
   guard:
+    name: Path guard
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
+    concurrency:
+      group: path-guard-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number }}
       LABEL: maintainer-reviewed
+      ACTION: ${{ github.event.action }}
+      ASSOCIATION: ${{ github.event.pull_request.author_association }}
+      CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -31,11 +40,12 @@ jobs:
         if: >-
           github.event.action == 'synchronize' &&
           !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
-        run: gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --remove-label "$LABEL" || true
+        # A failure here is caught below: the guard fails if the label is still set.
+        run: gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/$PR/labels/$LABEL" > /dev/null || true
       - name: Guard the protected paths
-        env:
-          ASSOCIATION: ${{ github.event.pull_request.author_association }}
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt"
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename' > "$RUNNER_TEMP/files.txt"
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | (.previous_filename // empty)' >> "$RUNNER_TEMP/files.txt"
           gh api "repos/$GITHUB_REPOSITORY/issues/$PR/labels" --paginate --jq '.[].name' > "$RUNNER_TEMP/labels.txt"
-          node scripts/path-guard.ts --association "$ASSOCIATION" --label "$LABEL" --files "$RUNNER_TEMP/files.txt" --labels "$RUNNER_TEMP/labels.txt"
+          node scripts/path-guard.ts --association "$ASSOCIATION" --action "$ACTION" --label "$LABEL" \
+            --changed-count "$CHANGED_FILES" --files "$RUNNER_TEMP/files.txt" --labels "$RUNNER_TEMP/labels.txt"

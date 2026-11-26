@@ -8,7 +8,7 @@ root="$PWD"
 npm run --silent build
 tarball="$root/$(npm pack --silent --ignore-scripts | tail -n 1)"
 work="$(mktemp -d)"
-trap 'rm -rf "$work" "$tarball"' EXIT
+trap 'cd "$root" && rm -rf "$work" "$tarball"' EXIT
 
 cd "$work"
 npm init --yes > /dev/null

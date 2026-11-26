@@ -107,7 +107,9 @@ THIRD_PARTY_NOTICES.md
 docs/threat-model.md
 docs/stability.md
 tests/README.md
-.claude/**
+.claude/agents/*.md
+.claude/rules/*.md
+.claude/skills/**
 .github/pull_request_template.md
 ```
 

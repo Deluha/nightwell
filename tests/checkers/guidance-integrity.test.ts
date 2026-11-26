@@ -71,6 +71,17 @@ describe("paths and anchors", () => {
     ]);
   });
 
+  test("checks anchors into any Markdown file and into the citing file itself", () => {
+    const readme = { "README.md": "# Title\n\n## What it is\n" };
+    expect(
+      check({ ...readme, "CLAUDE.md": "`README.md#what-it-is` and `#top`\n\n## Top\n" }),
+    ).toEqual([]);
+    expect(check({ ...readme, "CLAUDE.md": "`README.md#nope` and `#gone`\n" })).toEqual([
+      "anchor: 'README.md#nope' has no such heading",
+      "anchor: '#gone' has no such heading in this file",
+    ]);
+  });
+
   test("resolves relative to the citing file", () => {
     expect(check({ [`${SKILL}references/conventions.md`]: "### R1\n\n`../SKILL.md`\n" })).toEqual(
       [],

@@ -43,7 +43,36 @@ describe("checkSource", () => {
       "cli-boundary",
     ]);
     expect(rules("src/cli/run.ts", "process.stdout.write('x'); process.exitCode = 1;")).toEqual([]);
-    expect(rules("src/engine/a.ts", "process.versions.node;")).toEqual([]);
+    expect(rules("src/cli/run.ts", "import process from 'node:process'; console.log(1);")).toEqual(
+      [],
+    );
+  });
+
+  test.each([
+    "const { log } = console; log(1);",
+    "const c = console; c.log(1);",
+    "globalThis.console.log(1);",
+    "globalThis['process'].exit(1);",
+    "process['exit'](1);",
+    "const { env, exit } = process;",
+    "import { env } from 'node:process';",
+    "const p = await import('process');",
+    "process?.exit(1);",
+    "process.versions.node;",
+  ])("catches an indirect use outside src/cli/: %s", (code) => {
+    expect(rules("src/engine/a.ts", code)).toContain("cli-boundary");
+  });
+
+  test("does not mistake a property name for the global", () => {
+    expect(
+      rules("src/engine/a.ts", "const o = { process: 1, console: 2 }; o.process; o.console;"),
+    ).toEqual([]);
+  });
+
+  test("flags qualified names through optional chaining, computed access and types", () => {
+    expect(rules("src/a.ts", "x(auth?.uid);")).toEqual(["R2"]);
+    expect(rules("src/a.ts", "x(auth['uid']);")).toEqual(["R2"]);
+    expect(rules("src/a.ts", "type A = auth.uid;")).toEqual(["R2"]);
   });
 
   test("reports a file that cannot be parsed and a fat entry file", () => {
@@ -72,22 +101,34 @@ describe("checkFiles", () => {
       [
         "PLAN.md",
         "docs/notes.MD",
+        "notes.mdx",
+        "PLAN.markdown",
+        ".claude/notes/plan.md",
         "src/a.test.ts",
+        "src/a.test.tsx",
+        "src/__tests__/a.ts",
         "dist/index.js",
         ".env",
         "fixture/.env.local",
-        "a/key.pem",
+        "x/.ENV",
+        "a/key.PEM",
       ],
-      docs,
+      ["README.md", ".claude/rules/*.md"],
     );
     expect(found.map((problem) => `${problem.rule} ${problem.file}`)).toEqual([
       "R8 PLAN.md",
       "R8 docs/notes.MD",
+      "R8 notes.mdx",
+      "R8 PLAN.markdown",
+      "R8 .claude/notes/plan.md",
       "R8 src/a.test.ts",
+      "R8 src/a.test.tsx",
+      "R8 src/__tests__/a.ts",
       "no-artifact dist/index.js",
       "no-secret-file .env",
       "no-secret-file fixture/.env.local",
-      "no-secret-file a/key.pem",
+      "no-secret-file x/.ENV",
+      "no-secret-file a/key.PEM",
     ]);
   });
 });

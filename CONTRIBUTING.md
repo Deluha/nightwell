@@ -40,7 +40,7 @@ npm run verify                      # every gate; prints one pass/fail table
 
 - Write the subject in the imperative, at most 72 characters, without a trailing full stop; explain the
   why in the body.
-- Sign off every commit (`git commit -s`). The sign-off certifies the
+- Sign off every commit you contribute (`git commit -s`). The sign-off certifies the
   [Developer Certificate of Origin](https://developercertificate.org/): that you wrote the change or have
   the right to submit it under the project's licence. There is no contributor licence agreement.
 - Never skip a hook. If a hook fails wrongly, say so in the pull request.

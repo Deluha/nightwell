@@ -24,39 +24,48 @@ interface Node {
 const CLI_DIR = "src/cli/";
 const THIN_ENTRY_GLOBS = ["src/cli/main.ts", "src/cli/commands/*.ts"];
 const THIN_ENTRY_MAX_LINES = 40;
-const PROCESS_ONLY_IN_CLI = new Set([
-  "exit",
-  "exitCode",
-  "env",
-  "stdout",
-  "stderr",
-  "stdin",
-  "argv",
-]);
+const CLI_ONLY_GLOBALS = new Set(["console", "process"]);
+const CLI_ONLY_MODULES = new Set(["process", "node:process", "console", "node:console"]);
+const GLOBAL_OBJECTS = new Set(["globalThis", "global"]);
+const MEMBER_TYPES = new Set(["MemberExpression", "OptionalMemberExpression"]);
 
 function isNode(value: unknown): value is Node {
   return typeof value === "object" && value !== null && typeof (value as Node).type === "string";
 }
 
-function walk(node: Node, visit: (node: Node) => void): void {
-  visit(node);
+type Visit = (node: Node, parent: Node | undefined, key: string) => void;
+
+function walk(node: Node, visit: Visit, parent?: Node, parentKey = ""): void {
+  visit(node, parent, parentKey);
   for (const [key, value] of Object.entries(node)) {
     if (key === "loc" || key === "range") continue;
     for (const child of Array.isArray(value) ? value : [value]) {
-      if (isNode(child)) walk(child, visit);
+      if (isNode(child)) walk(child, visit, node, key);
     }
   }
+}
+
+/** The property name of a member access, for `a.b`, `a?.b` and `a["b"]`. */
+function memberProperty(node: Node): string | undefined {
+  const property = node["property"] as Node;
+  if (node["computed"] !== true) {
+    return property.type === "Identifier" ? (property["name"] as string) : undefined;
+  }
+  return literalValue(property);
 }
 
 /** Renders `a.b.c` for a member chain of plain identifiers, else undefined. */
 function qualifiedName(node: Node): string | undefined {
   if (node.type === "Identifier") return node["name"] as string;
-  if (node.type !== "MemberExpression" || node["computed"] === true) return undefined;
+  if (node.type === "TSQualifiedName") {
+    const left = qualifiedName(node["left"] as Node);
+    const right = qualifiedName(node["right"] as Node);
+    return left !== undefined && right !== undefined ? `${left}.${right}` : undefined;
+  }
+  if (!MEMBER_TYPES.has(node.type)) return undefined;
   const object = qualifiedName(node["object"] as Node);
-  const property = node["property"] as Node;
-  return object !== undefined && property.type === "Identifier"
-    ? `${object}.${property["name"] as string}`
-    : undefined;
+  const property = memberProperty(node);
+  return object !== undefined && property !== undefined ? `${object}.${property}` : undefined;
 }
 
 function literalValue(node: Node): string | undefined {
@@ -105,28 +114,42 @@ export function checkSource(files: readonly SourceFile[], forbidden: ForbiddenLi
     }
     const inCli = file.path.startsWith(CLI_DIR);
 
-    walk(ast, (node) => {
+    walk(ast, (node, parent, key) => {
       if (node.type === "Identifier" || node.type === "PrivateName") {
         const name = typeof node["name"] === "string" ? node["name"] : "";
         if (name.toLowerCase().includes(platform)) {
           add("R2", node, `identifier '${name}' contains the platform's name`);
         }
+        // A reference, not a property name such as `x.process` or `{ process: 1 }`.
+        const isPropertyName =
+          parent !== undefined &&
+          parent["computed"] !== true &&
+          ((key === "property" && MEMBER_TYPES.has(parent.type)) || key === "key");
+        if (!inCli && CLI_ONLY_GLOBALS.has(name) && !isPropertyName) {
+          add("cli-boundary", node, `${name} is used outside src/cli/`);
+        }
       }
-      if (node.type === "MemberExpression") {
+      if (MEMBER_TYPES.has(node.type) || node.type === "TSQualifiedName") {
         const name = qualifiedName(node);
         if (name !== undefined && isForbidden(name)) {
           add("R2", node, `qualified name '${name}' belongs in the rule pack`);
         }
+      }
+      if (MEMBER_TYPES.has(node.type) && !inCli) {
         const object = node["object"] as Node;
-        const property = node["property"] as Node;
-        if (!inCli && object.type === "Identifier") {
-          if (object["name"] === "console") {
-            add("cli-boundary", node, "console is used outside src/cli/");
-          }
-          const member = property.type === "Identifier" ? String(property["name"]) : "";
-          if (object["name"] === "process" && PROCESS_ONLY_IN_CLI.has(member)) {
-            add("cli-boundary", node, `process.${member} is used outside src/cli/`);
-          }
+        const property = memberProperty(node) ?? "";
+        if (
+          object.type === "Identifier" &&
+          GLOBAL_OBJECTS.has(object["name"] as string) &&
+          CLI_ONLY_GLOBALS.has(property)
+        ) {
+          add("cli-boundary", node, `${property} is used outside src/cli/`);
+        }
+      }
+      if (node.type === "ImportDeclaration" || node.type === "ImportExpression") {
+        const source = literalValue(node["source"] as Node);
+        if (!inCli && source !== undefined && CLI_ONLY_MODULES.has(source)) {
+          add("cli-boundary", node, `'${source}' is imported outside src/cli/`);
         }
       }
       const value = literalValue(node);
@@ -151,22 +174,25 @@ export function parsePermanentDocs(conventions: string): string[] {
 const BUILD_ARTIFACTS = ["dist/**", "coverage/**", "node_modules/**", ".tools/**", "**/*.tgz"];
 const SECRET_FILES = ["**/.env", "**/.env.*", "**/*.pem", "**/*.key", "**/*.p12", "**/*.pfx"];
 const SECRET_FILE_EXCEPTIONS = ["**/.env.example"];
-const TEST_FILES = ["**/*.test.ts", "**/*.spec.ts", "**/*.test.js", "**/*.spec.js"];
+const TEST_FILES = ["**/*.test.*", "**/*.spec.*", "**/__tests__/**"];
+const MARKDOWN = /\.(md|mdx|markdown)$/;
 
 /** R8 and the tracked-file rules, over the list of files in the working tree. */
 export function checkFiles(paths: readonly string[], permanentDocs: readonly string[]): Problem[] {
   const problems: Problem[] = [];
   for (const file of paths) {
-    if (matchesAny(file, BUILD_ARTIFACTS)) {
+    // Rules match on the lower-cased path; the permanent docs list is exact.
+    const lower = file.toLowerCase();
+    if (matchesAny(lower, BUILD_ARTIFACTS)) {
       problems.push({ rule: "no-artifact", file, message: "build artifact must not be tracked" });
     }
-    if (matchesAny(file, SECRET_FILES) && !matchesAny(file, SECRET_FILE_EXCEPTIONS)) {
+    if (matchesAny(lower, SECRET_FILES) && !matchesAny(lower, SECRET_FILE_EXCEPTIONS)) {
       problems.push({ rule: "no-secret-file", file, message: "secret file must not be tracked" });
     }
-    if (matchesAny(file, TEST_FILES) && !file.startsWith("tests/")) {
+    if (matchesAny(lower, TEST_FILES) && !file.startsWith("tests/")) {
       problems.push({ rule: "R8", file, message: "tests live only in tests/" });
     }
-    if (file.toLowerCase().endsWith(".md") && !matchesAny(file, permanentDocs)) {
+    if (MARKDOWN.test(lower) && !matchesAny(file, permanentDocs)) {
       problems.push({
         rule: "R8",
         file,

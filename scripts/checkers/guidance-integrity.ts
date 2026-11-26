@@ -74,6 +74,10 @@ export function pathReferences(markdown: string): Reference[] {
   stripFences(markdown).forEach((line, index) => {
     for (const match of line.matchAll(/`([^`\n]+)`/g)) {
       const [target = "", anchor] = (match[1] ?? "").split("#", 2);
+      if (target === "" && anchor !== undefined && /^[\p{L}\p{N}_-]+$/u.test(anchor)) {
+        references.push({ path: "", anchor, line: index + 1 });
+        continue;
+      }
       if (!PATH_SHAPE.test(target) || target.startsWith("@")) continue;
       if (!target.includes("/") && !FILE_EXTENSIONS.test(target)) continue;
       const first = target.split("/")[0] ?? "";
@@ -113,6 +117,17 @@ export function checkGuidance(input: GuidanceInput): Problem[] {
   for (const file of guidance) {
     const text = input.texts.get(file) ?? "";
     for (const reference of pathReferences(text)) {
+      if (reference.path === "") {
+        if (!anchors(text).has(reference.anchor ?? "")) {
+          problems.push({
+            rule: "anchor",
+            file,
+            line: reference.line,
+            message: `'#${reference.anchor ?? ""}' has no such heading in this file`,
+          });
+        }
+        continue;
+      }
       const candidates = [
         posix.normalize(posix.join(posix.dirname(file), reference.path)),
         posix.normalize(reference.path),

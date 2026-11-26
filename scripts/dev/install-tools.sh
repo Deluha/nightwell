@@ -12,6 +12,11 @@ ACTIONLINT_MODULE="github.com/rhysd/actionlint"
 ACTIONLINT_VERSION="v1.7.12"
 ACTIONLINT_SUM="h1:vQ4GeJN86C0QH+gTUQcs8McmK62OLT3kmakPMtEWYnY="
 
+# First, so the hooks fail closed even if a download below fails.
+if [ -d .githooks ] && git rev-parse --git-dir >/dev/null 2>&1; then
+  git config core.hooksPath .githooks
+fi
+
 npm ci --ignore-scripts --no-audit --no-fund
 
 # Builds a Go tool at a pinned version after comparing the module checksum
@@ -39,7 +44,3 @@ mkdir -p .tools/bin
 install_go_tool "$GITLEAKS_MODULE" "$GITLEAKS_VERSION" "$GITLEAKS_SUM" "$GITLEAKS_MODULE" gitleaks
 install_go_tool "$ACTIONLINT_MODULE" "$ACTIONLINT_VERSION" "$ACTIONLINT_SUM" \
   "$ACTIONLINT_MODULE/cmd/actionlint" actionlint
-
-if [ -d .githooks ] && git rev-parse --git-dir >/dev/null 2>&1; then
-  git config core.hooksPath .githooks
-fi

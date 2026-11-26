@@ -2,7 +2,12 @@
 -- Returns attributes only; the role's name is reported only if it is a platform role.
 select
   case
-    when r.rolname ~ '^(supabase_|pg_)' or r.rolname in ('postgres', 'authenticator') then r.rolname
+    when r.rolname in (
+      'anon', 'authenticated', 'service_role', 'authenticator', 'postgres', 'dashboard_user', 'pgbouncer',
+      'supabase_admin', 'supabase_auth_admin', 'supabase_storage_admin', 'supabase_realtime_admin',
+      'supabase_replication_admin', 'supabase_read_only_user', 'supabase_etl_admin',
+      'supabase_privileged_role', 'supabase_functions_admin'
+    ) then r.rolname
     else 'other'
   end as platform_role,
   r.rolsuper as superuser,

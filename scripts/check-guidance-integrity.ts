@@ -1,15 +1,10 @@
-import {
-  CODEOWNERS,
-  THREAT_MODEL,
-  checkGuidance,
-  isGuidance,
-} from "./checkers/guidance-integrity.ts";
+import { CODEOWNERS, checkGuidance } from "./checkers/guidance-integrity.ts";
 import { listFiles, readJson, readText, report } from "./lib/repo.ts";
 
 const paths = listFiles();
 const texts = new Map<string, string>();
 for (const path of paths) {
-  if (isGuidance(path) || path === THREAT_MODEL || path === CODEOWNERS) {
+  if (path.endsWith(".md") || path === CODEOWNERS) {
     texts.set(path, readText(path));
   }
 }

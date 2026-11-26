@@ -1,48 +1,82 @@
-// The hosted verification queries are reviewed like code. This test keeps their shape: one SELECT
-// each, no write, and no relation outside the system catalogs and information_schema.
+// The hosted verification queries are reviewed like code. This test parses each one with a real
+// PostgreSQL parser and holds it to the lists in the checker. It keeps the queries' shape; it does
+// not prove what a query returns, which is why a change to a query or to a list needs review.
 import { readdirSync, readFileSync } from "node:fs";
-import { describe, expect, test } from "vitest";
+import { loadModule, parseSync } from "libpg-query";
+import { beforeAll, describe, expect, test } from "vitest";
+import { checkHostedQuery } from "../../scripts/checkers/hosted-queries.ts";
 
 const DIR = "scripts/hosted-verify";
 const files = readdirSync(DIR).filter((file) => file.endsWith(".sql"));
-const FORBIDDEN =
-  /\b(insert|update|delete|merge|truncate|create|alter|drop|grant|revoke|copy|call|do|set|reset|lock|vacuum|analyze|refresh|listen|notify|execute|prepare|into|nextval|setval|set_config|pg_sleep|dblink\w*|lo_\w+|pg_read_\w+|pg_ls_\w+|pg_terminate_backend|pg_cancel_backend|pg_notify|pg_advisory\w*)\b/i;
-const NEVER_READ =
-  /\b(auth\.users|storage\.objects|vault\.\w+|cron\.job\w*|supabase_functions\.hooks|net\.\w+)\b/i;
+const check = (sql: string) =>
+  checkHostedQuery("q.sql", parseSync(sql)).map((problem) => problem.message);
 
-function sql(file: string): string {
-  return readFileSync(`${DIR}/${file}`, "utf8")
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("--"))
-    .join("\n")
-    .replace(/'(?:[^']|'')*'/g, "''");
-}
+beforeAll(async () => {
+  await loadModule();
+});
 
-test("the directory holds the queries", () => {
+test("the directory holds only the queries", () => {
   expect(files.length).toBeGreaterThan(0);
+  expect(readdirSync(DIR)).toEqual(files);
 });
 
 describe.each(files)("%s", (file) => {
-  const text = sql(file);
+  test("starts with a header comment and passes the checker", () => {
+    const text = readFileSync(`${DIR}/${file}`, "utf8");
+    expect(text).toMatch(/^-- (U\d|Context)/);
+    expect(checkHostedQuery(file, parseSync(text))).toEqual([]);
+  });
+});
 
-  test("is a single SELECT with a header comment", () => {
-    expect(readFileSync(`${DIR}/${file}`, "utf8")).toMatch(/^-- U\d|^-- Context/);
-    expect(text.trim()).toMatch(/^select\b/i);
-    expect(text).not.toContain(";");
+describe("the checker", () => {
+  test("accepts a catalog query", () => {
+    expect(
+      check("select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on true"),
+    ).toEqual([]);
   });
 
-  test("contains no write, no side-effect function and no never-read relation", () => {
-    expect(text).not.toMatch(FORBIDDEN);
-    expect(text).not.toMatch(NEVER_READ);
+  test("requires exactly one SELECT", () => {
+    const one = ["must be exactly one SELECT statement"];
+    expect(check("select 1; select 2")).toEqual(one);
+    expect(check("delete from pg_catalog.pg_class")).toEqual(one);
+    expect(check("set role postgres")).toEqual(one);
   });
 
-  test("reads only system catalogs and information_schema", () => {
-    const relations = [
-      ...text.matchAll(/\b(?:from|join)\s+(?:lateral\s+)?([a-z_]+\.[a-z_]+)/gi),
-    ].map((match) => match[1] ?? "");
-    expect(relations.length).toBeGreaterThan(0);
-    for (const relation of relations) {
-      expect(relation).toMatch(/^(pg_catalog|information_schema)\./);
-    }
+  test.each([
+    ["a comma join", "select 1 from pg_catalog.pg_class c, public.customers u"],
+    ["a quoted relation", 'select 1 from pg_catalog.pg_class c join "auth"."users" u on true'],
+    ["a spaced qualified name", "select 1 from auth . users"],
+    ["an unqualified relation", "select 1 from pg_catalog.pg_class c join customers u on true"],
+    ["a digit in the schema name", "select 1 from app1.orders"],
+    ["a subquery", "select exists (select 1 from storage.objects)"],
+    ["a sensitive catalog", "select rolname from pg_catalog.pg_authid"],
+  ])("rejects a relation off the list: %s", (_name, sql) => {
+    expect(check(sql).join()).toMatch(/not on the relation list/);
+  });
+
+  test.each([
+    [
+      "a query runner",
+      "select pg_catalog.query_to_xml('select 1 from auth.users', true, true, '')",
+    ],
+    ["a definition function", "select pg_get_viewdef(oid) from pg_catalog.pg_class"],
+    ["a side effect", "select pg_notify('a', 'b')"],
+    ["a function in another schema", "select public.count(1)"],
+  ])("rejects a function off the list: %s", (_name, sql) => {
+    expect(check(sql).join()).toMatch(/not on the function list/);
+  });
+
+  test("rejects writes, INTO, locking clauses and other settings", () => {
+    expect(
+      check(
+        "with w as (insert into pg_catalog.pg_class default values returning 1) select 1",
+      ).join(),
+    ).toMatch(/data-modifying/);
+    expect(check("select 1 into t from pg_catalog.pg_class").join()).toMatch(/INTO/);
+    expect(check("select 1 from pg_catalog.pg_class for update").join()).toMatch(/locking clause/);
+    expect(check("select current_setting('pgrst.db_schemas')")).toEqual([
+      "reads a setting that is not on the setting list",
+    ]);
+    expect(check("select current_setting(relname) from pg_catalog.pg_class")).toHaveLength(1);
   });
 });

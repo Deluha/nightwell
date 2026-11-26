@@ -4,6 +4,8 @@ name: ci
 
 on:
   pull_request:
+    # 'edited' re-runs the secret scan when the title or the description changes.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
   merge_group:

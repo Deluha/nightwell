@@ -33,18 +33,19 @@ Never skip a hook. A hook that fails wrongly is fixed through the changing-guida
 
 ## Workflows
 
-| Workflow                                   | Does                                                                                                                            |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `ci`                                       | Calls the four below and ends in the one required check, `CI gate`                                                              |
-| `ci-pre-commit`                            | Every hook on the whole tree; the secret scan over the pull request's commits, messages, text and the tree; the workflow linter |
-| `ci-docs-sync`                             | Docs sync against the pull-request base                                                                                         |
-| `ci-tests`                                 | Type-check and the offline suite with coverage, on three operating systems and every supported Node line                        |
-| `ci-package`                               | Packs the tarball, installs it into an empty directory with scripts off, runs the binary, lints the export map and types        |
-| `path-guard`                               | Fails an outside pull request that touches protected paths until a maintainer labels it                                         |
-| `codeql`, `dependency-review`, `scorecard` | Static analysis of code and workflows; dependency and licence review; supply-chain posture                                      |
+| Workflow                                   | Does                                                                                                                                                                                               |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci`                                       | Calls the four below and ends in the required check `CI gate`                                                                                                                                      |
+| `ci-pre-commit`                            | Every hook on the whole tree; the secret scan over the pull request's commits, messages, text and the tree; the workflow linter                                                                    |
+| `ci-docs-sync`                             | Docs sync against the pull-request base                                                                                                                                                            |
+| `ci-tests`                                 | Type-check and the offline suite with coverage, on three operating systems and every supported Node line                                                                                           |
+| `ci-package`                               | Packs the tarball, installs it into an empty directory with scripts off, runs the binary, lints the export map and types                                                                           |
+| `path-guard`                               | The second required check, `Path guard`: fails an outside pull request that touches protected paths until a maintainer labels it. It runs from the base branch, so a pull request cannot change it |
+| `codeql`, `dependency-review`, `scorecard` | Static analysis of code and workflows; dependency and licence review; supply-chain posture                                                                                                         |
 
 Every workflow starts from read-only permissions; third-party actions are pinned to a commit hash;
-checkouts do not persist credentials; installs use the lockfile with install scripts off.
+checkouts do not persist credentials; installs use the lockfile with install scripts off. Both `CI gate`
+and `Path guard` are required on the default branch.
 
 ## Tests
 
@@ -73,8 +74,9 @@ The rules are in `ROADMAP.md` under "The hosted database" and are mandatory: it 
   reference, user name or credential in the repository, a commit message, a pull request, a report, a
   subagent brief, a note or agent memory. Query output is not committed.
 - A session that finds a credential broader than the one the roadmap allows stops and tells the owner.
-- `tests/hosted-verify/` keeps the queries' shape: one `SELECT` each, no write, no side-effect function,
-  catalogs only.
+- `tests/hosted-verify/` holds each query to the relation, function and setting lists in
+  `scripts/checkers/hosted-queries.ts`, on the syntax tree of a real PostgreSQL parser. It keeps the
+  queries' shape; it does not prove what a query returns, so a change to a query or a list is reviewed.
 - `scripts/local-verify/assumptions.sql` checks general PostgreSQL behaviour. It creates scratch objects
   and runs only against a throwaway local container, never against the hosted database.
 - `.claude/settings.json` denies the commands that would bypass these rules.

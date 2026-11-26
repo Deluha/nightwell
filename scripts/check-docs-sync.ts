@@ -2,6 +2,7 @@
 //   node scripts/check-docs-sync.ts [--base <ref>] [--message-file <path>]
 // Checks the commits since the base (default: the merge base with the default
 // branch) together with the work not yet committed.
+import { execFileSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import { checkDocsSync, type Commit, type DocsMapEntry } from "./checkers/docs-sync.ts";
 import { git, readJson, readText, report } from "./lib/repo.ts";
@@ -10,16 +11,30 @@ const { values } = parseArgs({
   options: { base: { type: "string" }, "message-file": { type: "string" } },
 });
 
-function resolveBase(): string | undefined {
-  for (const ref of [values.base, "origin/main", "main"]) {
-    if (ref === undefined) continue;
-    try {
-      return git("merge-base", ref, "HEAD").trim();
-    } catch {
-      // The ref does not exist in this checkout; try the next one.
-    }
+function mergeBase(ref: string): string | undefined {
+  try {
+    return execFileSync("git", ["merge-base", ref, "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return undefined;
   }
-  return undefined;
+}
+
+/** A base given explicitly must resolve: a gate never falls back silently. */
+function resolveBase(): string | undefined {
+  if (values.base !== undefined) {
+    const base = mergeBase(values.base);
+    if (base === undefined) {
+      console.error(
+        `check-docs-sync: base '${values.base}' cannot be resolved (shallow checkout?)`,
+      );
+      process.exit(1);
+    }
+    return base;
+  }
+  return mergeBase("origin/main") ?? mergeBase("main");
 }
 
 function commitsSince(base: string | undefined): Commit[] {

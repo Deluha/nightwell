@@ -216,6 +216,14 @@ one. Local: `scripts/local-verify/assumptions.sql` on the official `postgres:17`
 | U9 | **Unverified.** The session had no pooler connection; Phase 3 commit 1 resolves it on the throwaway project | — |
 | — | **Also observed:** the management interface's read-only endpoint runs as `supabase_read_only_user`, which bypasses row security and has `default_transaction_read_only = on` | Hosted |
 
+After the run, review narrowed the two role queries from name prefixes to a fixed list of platform roles;
+they were not run again, and the recorded result names only roles on that list.
+
+Open for the owner (Phase 0 deviations, not self-granted): the `./schema/*` export of commit 1 is not in the
+package yet, because the package linter rejects an export that matches no file — proposed: add it in Phase
+2 commit 1 with the first schema; and the sign-off of contributions is stated in `CONTRIBUTING.md` but not
+yet checked by a hook or CI.
+
 What this changes for later phases (proposed to the owner; no phase text is altered here): U1's `cron.job`
 half moves to Phase 1 commit 5, where the fixture has `pg_cron`; for U6, Phase 2 commit 7 should expect no
 database setting on a hosted project and fall to `--exposed-schemas` or the default labelled "assumed"; for
@@ -439,7 +447,8 @@ are accepted and reported as untested.
 - Name clearance for "Nightwell" as a public product name (package registry, code host, trademark search)
   before Phase 0's first commit; reserve the npm package name by hand and revoke every token afterwards
   (`nightwell` was unclaimed on 2026-11-25).
-- Repository: require `CI gate` and a pull request on the default branch with no bypass; forbid
+- Repository: require `CI gate`, `Path guard` (added in Phase 0: it runs from the base branch, so a pull
+  request cannot change it) and a pull request on the default branch with no bypass; forbid
   force-pushes; protect release tags; workflow runs from outside contributors need approval; default
   workflow token read-only; workflows may not create or approve pull requests; turn on private
   vulnerability reporting, secret-scanning push protection and dependency alerts.

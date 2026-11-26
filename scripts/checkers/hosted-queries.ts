@@ -1,6 +1,7 @@
 // Keeps the hosted verification queries inside their rules, on the syntax tree
 // a real PostgreSQL parser produces: one SELECT, no write, no locking clause,
-// and only relations and functions from the lists below. A change to a list is
+// and only relations, functions, types, value functions and settings from the
+// lists below, with built-in operators. A change to a list is
 // reviewed like the queries themselves.
 import type { Problem } from "../lib/problem.ts";
 
@@ -38,6 +39,12 @@ const FORBIDDEN_NODES = new Set([
   "MergeStmt",
   "RangeTableSample",
 ]);
+/** Where each node kind that applies an operator keeps the operator's name. */
+const OPERATOR_FIELDS: Readonly<Record<string, string>> = {
+  A_Expr: "name",
+  SortBy: "useOp",
+  SubLink: "operName",
+};
 const FORBIDDEN_KEYS = new Set(["intoClause", "lockingClause"]);
 
 type Tree = Record<string, unknown>;
@@ -72,8 +79,9 @@ export function checkHostedQuery(file: string, parsed: unknown): Problem[] {
     for (const [key, value] of Object.entries(node)) {
       if (FORBIDDEN_NODES.has(key)) add(`contains a forbidden construct (${key})`);
       // Operators, types and value functions run code too: only built-in ones pass.
-      if ((key === "A_Expr" && isTree(value)) || (key === "SortBy" && isTree(value))) {
-        const operator = names(key === "A_Expr" ? value["name"] : value["useOp"]);
+      const operatorField = OPERATOR_FIELDS[key];
+      if (operatorField !== undefined && isTree(value)) {
+        const operator = names(value[operatorField]);
         if (operator.length > 1 && !(operator.length === 2 && operator[0] === "pg_catalog")) {
           add(`uses operator '${operator.join(".")}', which is not a built-in operator`);
         }

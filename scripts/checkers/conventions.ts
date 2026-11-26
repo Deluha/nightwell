@@ -46,6 +46,7 @@ const NAME_ONLY_KEYS: Readonly<Record<string, readonly string[]>> = {
   ImportSpecifier: ["imported"],
   ExportSpecifier: ["exported"],
   TSEnumMember: ["id"],
+  TSQualifiedName: ["right"],
 };
 
 function isNode(value: unknown): value is Node {
@@ -134,6 +135,12 @@ export function checkSource(files: readonly SourceFile[], forbidden: ForbiddenLi
     }
     const inCli = file.path.startsWith(CLI_DIR);
 
+    const reExported = new Set<Node>();
+    walk(ast, (node) => {
+      if (node.type === "ExportNamedDeclaration" && isNode(node["source"])) {
+        for (const specifier of node["specifiers"] as Node[]) reExported.add(specifier);
+      }
+    });
     walk(ast, (node, parent, key) => {
       if (node.type === "Identifier" || node.type === "PrivateName") {
         const name = typeof node["name"] === "string" ? node["name"] : "";
@@ -148,6 +155,8 @@ export function checkSource(files: readonly SourceFile[], forbidden: ForbiddenLi
             ((parent["computed"] !== true &&
               ((key === "property" && MEMBER_TYPES.has(parent.type)) || key === "key")) ||
               (NAME_ONLY_KEYS[parent.type]?.includes(key) ?? false) ||
+              // In `export { process } from "./x.ts"` both names belong to the other module.
+              (parent.type === "ExportSpecifier" && reExported.has(parent)) ||
               parent.type === "PrivateName"));
         if (!inCli && RESERVED_OUTSIDE_CLI.has(name) && !isNameOnly) {
           add("cli-boundary", node, `${name} is reserved for src/cli/`);

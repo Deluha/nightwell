@@ -75,6 +75,9 @@ describe("checkSource", () => {
     "import { process as run } from './x.ts'; run();",
     "export { run as process } from './x.ts';",
     "enum E { process }",
+    "export { process as run } from './x.ts';",
+    "export { process } from './x.ts';",
+    "type T = X.process;",
     "export { a } from './x.ts'; export const b = 1;",
   ])("does not mistake a name-only position for the global: %s", (code) => {
     expect(rules("src/engine/a.ts", code)).toEqual([]);

@@ -73,6 +73,11 @@ describe("the checker", () => {
       "select 1 from pg_catalog.pg_class order by oid using operator(public.<)",
       /not a built-in operator/,
     ],
+    [
+      "a user-defined operator before a subquery",
+      "select 1 operator(public.=) any (select 1)",
+      /not a built-in operator/,
+    ],
     ["a user-defined type", "select 'x'::public.evil", /not on the type list/],
     ["a cast to a name-resolving type", "select 'auth.users'::regclass", /not on the type list/],
     [

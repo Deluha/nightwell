@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
-import { LISTING_LIMIT, checkPathGuard } from "../../scripts/checkers/path-guard.ts";
+import { LISTING_LIMIT, RESETS_REVIEW, checkPathGuard } from "../../scripts/checkers/path-guard.ts";
 
 const base = {
   association: "CONTRIBUTOR",
@@ -65,4 +66,17 @@ test("an incomplete file listing fails closed", () => {
     [],
   );
   expect(checkPathGuard({ ...harmless, changedCount: 1 })).toEqual([]);
+});
+
+test("every event the workflow listens to either resets the review or is a label change", () => {
+  const workflow = readFileSync(".github/workflows/path-guard.yml", "utf8");
+  const types =
+    /types: \[([^\]]+)\]/
+      .exec(workflow)?.[1]
+      ?.split(",")
+      .map((type) => type.trim()) ?? [];
+  expect(types).toContain("synchronize");
+  for (const type of types) {
+    expect(RESETS_REVIEW.has(type) || ["opened", "labeled", "unlabeled"].includes(type)).toBe(true);
+  }
 });

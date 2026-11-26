@@ -26,10 +26,23 @@ else
   "${CLI[@]}" db start --workdir fixture
 fi
 
+# Every container of the fixture must run a pinned image: the database one its own pin, any other one of
+# the pins started above.
 if [ "$pinned" = 1 ]; then
+  pinned_ids=()
+  for name in "${names[@]}"; do pinned_ids+=("$(image_id "$name")"); done
+  bad=""
   running="$(docker inspect --format '{{.Image}}' supabase_db_cellarbook)"
-  if [ "$running" != "$(image_id "$db")" ]; then
-    echo "fixture: supabase_db_cellarbook does not run the pinned $db image; stopping" >&2
+  [ "$running" = "$(image_id "$db")" ] || bad="supabase_db_cellarbook (the $db pin)"
+  while IFS= read -r container; do
+    running="$(docker inspect --format '{{.Image}}' "$container")"
+    case " ${pinned_ids[*]} " in
+      *" $running "*) ;;
+      *) bad="$container" ;;
+    esac
+  done < <(docker ps --filter 'name=^supabase_.*_cellarbook$' --format '{{.Names}}')
+  if [ -n "$bad" ]; then
+    echo "fixture: $bad does not run a pinned image; stopping" >&2
     "${CLI[@]}" stop --no-backup --workdir fixture
     exit 1
   fi

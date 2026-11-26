@@ -1,21 +1,24 @@
 // The oracle's logic, shared by its offline and live tests. Pure: no file, process or network access.
 // The oracle dumps the fixture's non-managed schemas, loads the dump into stock PostgreSQL statement by
-// statement and holds each manifest entry to its declared oracle mode. This file splits the dump, says
-// which manifest objects each statement creates or alters, builds the psql script and reads its output,
-// and judges the outcome. The live test (oracle.live.test.ts) does the running.
+// statement, twice (`bare`, and `roles` with the platform's roles added as plain stand-ins), and holds each
+// manifest entry to its declared oracle mode. This file splits the dump, says which manifest objects each
+// statement creates or alters, builds the psql script and reads its output, and judges the outcome. The
+// live test (oracle.live.test.ts) does the running.
 import { parseSync } from "libpg-query";
 import {
   isObjectKind,
+  isOracleMode,
   isRow,
   OBJECT_KEYS,
   type ObjectKind,
+  type OracleMode,
   type Row,
 } from "./manifest.ts";
 
 // The schemas the platform manages, left out of the dump. This is the Supabase CLI's internal-schema list
-// (`INTERNAL_SCHEMAS` in supabase/cli `apps/cli/src/commands/inspect/db/inspect-schemas.ts`, tag v3.4.0,
-// read 2026-11-26 from raw.githubusercontent.com), which already holds `_realtime`, `pgbouncer`,
-// `information_schema` and `pg_*`. A trailing `*` is a prefix pattern. Every other schema is dumped.
+// (`INTERNAL_SCHEMAS` in supabase/cli `apps/cli/src/commands/inspect/db/inspect-schemas.ts`, tag v3.4.0),
+// which already holds `_realtime`, `pgbouncer`, `information_schema` and `pg_*`. A trailing `*` is a prefix
+// pattern. Every other schema is dumped.
 export const MANAGED_SCHEMAS: readonly string[] = [
   "information_schema",
   "pg_*",
@@ -53,8 +56,9 @@ export const isManagedSchema = (name: string): boolean =>
     pattern.endsWith("*") ? name.startsWith(pattern.slice(0, -1)) : name === pattern,
   );
 
-// What a failure message must name to count as a reference to the platform.
-const PLATFORM_SCHEMAS = [
+// The schemas whose absence from stock PostgreSQL is a reference to the platform. A role is a platform
+// reference when the dump names it and stock lacks it; any `supabase_` name is one too.
+export const PLATFORM_SCHEMAS: readonly string[] = [
   "auth",
   "storage",
   "realtime",
@@ -66,14 +70,13 @@ const PLATFORM_SCHEMAS = [
   "extensions",
   "graphql",
 ];
-const PLATFORM_ROLES = ["anon", "authenticated", "service_role", "authenticator"];
-const PLATFORM_PUBLICATIONS = ["supabase_realtime"];
-const PLATFORM_REFERENCE = new RegExp(
-  `(?<![\\w$])(?:${[...PLATFORM_SCHEMAS, ...PLATFORM_ROLES, ...PLATFORM_PUBLICATIONS].join("|")}|supabase_\\w+)(?![\\w$])`,
-);
+const PLATFORM_PREFIX = "supabase_";
 
 // SQLSTATEs of "that object does not exist": undefined table, function, object, schema, column.
 const MISSING_OBJECT_CODES = new Set(["42P01", "42883", "42704", "3F000", "42703"]);
+
+// What a probe on the fixture must never fail with: a missing object or a syntax error means a wrong probe.
+export const BROKEN_PROBE_CODES: ReadonlySet<string> = new Set([...MISSING_OBJECT_CODES, "42601"]);
 
 // Object kinds a schema-scoped dump never holds: they are database-level objects or rows of platform tables.
 const NOT_DUMPABLE_KINDS = new Set<string>([
@@ -102,12 +105,9 @@ const NAMEABLE_KINDS = new Set<string>([
   "sequence",
 ]);
 
-export type OracleMode = "load-fails" | "probe-same" | "probe-differs" | "not-in-dump";
 export type Status = "loaded" | "failed" | "cascade" | "absent" | "unexplained";
 export type Verdict = "proof" | "cascade" | "excluded" | "mismatch";
-export type ProbeComparison = "same" | "differs" | "failed";
-
-const MODES: readonly string[] = ["load-fails", "probe-same", "probe-differs", "not-in-dump"];
+export type ProbeComparison = "same" | "differs";
 
 // An object of the manifest, or a thing a statement creates or alters, in the manifest's object shape.
 const TARGET_FIELDS = OBJECT_KEYS.filter((key) => key !== "object");
@@ -132,20 +132,36 @@ export interface OracleEntry {
   kind: "tie" | "control";
   mode: OracleMode;
   probe: string;
+  // The platform names a `load-fails` entry's failure must name: schemas and/or roles.
+  failsOn: string[];
   objects: Target[];
   postgresMajor: number | undefined;
 }
 
-export interface EntryJudgement {
-  id: string;
+// What one load pass says about an entry. `named` holds the entry's `failsOn` names that the failure
+// messages of its own statements name as whole identifiers.
+export interface PassResult {
   status: Status;
+  named: string[];
+}
+
+export interface EntryJudgement extends PassResult {
+  id: string;
   sqlstates: string[];
+}
+
+export interface StatementRef {
+  index: number;
+  sqlstate: string;
 }
 
 export interface Judgement {
   entries: EntryJudgement[];
-  unexplained: { index: number; sqlstate: string }[];
-  unattributed: { index: number; sqlstate: string }[];
+  unexplained: StatementRef[];
+  unattributed: StatementRef[];
+  // Failures only on a platform role, in statements no entry owns: the grants the platform's default
+  // privileges add to every object. Listed, never used as proof, never unexplained.
+  platformAcl: StatementRef[];
 }
 
 // --- reading parse trees -------------------------------------------------------------------------
@@ -645,32 +661,72 @@ type Cause = "dependency" | "platform" | "missing" | "unexplained";
 
 const PRIORITY: Status[] = ["unexplained", "failed", "cascade", "loaded"];
 
+// The identifiers a message names, whole: each part of a quoted or bare, schema-qualified name, and the
+// qualified name itself. `"public.t"`, `public.t` and `auth.uid()` name `public`, `t`, `auth` and `uid`,
+// never `pub` or `au`; a short object name cannot match inside a longer word.
+const IDENTIFIER = String.raw`"(?:[^"]|"")*"|[\p{L}_][\p{L}\p{N}_$]*`;
+const CHAIN = new RegExp(`(?:${IDENTIFIER})(?:\\.(?:${IDENTIFIER}))*`, "gu");
+const PART = new RegExp(IDENTIFIER, "gu");
+
+export function identifiersIn(message: string): Set<string> {
+  const found = new Set<string>();
+  for (const [chain] of message.matchAll(CHAIN)) {
+    const parts = [...chain.matchAll(PART)].map(([part]) =>
+      part.startsWith('"') ? part.slice(1, -1).replaceAll('""', '"') : part,
+    );
+    for (const part of parts) {
+      found.add(part);
+      for (const piece of part.split(".")) found.add(piece);
+    }
+    found.add(parts.join("."));
+  }
+  return found;
+}
+
+const namesAny = (identifiers: Set<string>, names: Iterable<string>): boolean =>
+  [...names].some((name) => identifiers.has(name));
+const namesPlatformPrefix = (identifiers: Set<string>): boolean =>
+  [...identifiers].some((name) => name.startsWith(PLATFORM_PREFIX));
+
 // A failed statement's cause. A statement that names an object an earlier failure left uncreated is a
 // dependency; one that names the platform is a platform reference; one that names an object a dump never
 // holds is a missing one; anything else is unexplained.
 function causeOf(
   sqlstate: string,
-  message: string,
+  identifiers: Set<string>,
   failed: Set<string>,
   missing: Set<string>,
+  platform: Set<string>,
 ): Cause {
-  const names = (set: Set<string>) => [...set].some((name) => message.includes(name));
-  if (MISSING_OBJECT_CODES.has(sqlstate) && names(failed)) return "dependency";
-  if (PLATFORM_REFERENCE.test(message)) return "platform";
-  if (MISSING_OBJECT_CODES.has(sqlstate) && names(missing)) return "missing";
+  if (MISSING_OBJECT_CODES.has(sqlstate) && namesAny(identifiers, failed)) return "dependency";
+  if (namesAny(identifiers, platform) || namesPlatformPrefix(identifiers)) return "platform";
+  if (MISSING_OBJECT_CODES.has(sqlstate) && namesAny(identifiers, missing)) return "missing";
   return "unexplained";
 }
 
 const nameable = (created: Target[]): string[] =>
   created.flatMap((one) => (NAMEABLE_KINDS.has(one.kind) && one.name !== undefined ? [one.name] : []));
 
-// Judges each entry from the per-statement outcomes.
-export function judge(results: StatementResult[], entries: OracleEntry[]): Judgement {
+// The statement kinds whose failures on a platform role may be the platform's own grants.
+const ACL_KINDS = new Set(["GrantStmt", "AlterDefaultPrivilegesStmt"]);
+
+// Judges each entry from the per-statement outcomes of one load pass. `roles` are the roles the dump names
+// that stock lacks. An entry is judged only on the statements whose targets match its own objects: a
+// statement no entry owns is never credited to one. Ties that share one statement and one cause are proven
+// together: a statement that fails naming a platform name proves every tie in it that declares that name,
+// and a control in it is a cascade. A failure only on a platform role in a statement no entry owns goes to
+// `platformAcl`.
+export function judge(
+  results: StatementResult[],
+  entries: OracleEntry[],
+  roles: readonly string[],
+): Judgement {
   const { byStatement, targets } = attribute(
     results.map((result) => result.statement),
     entries,
   );
   const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const platform = new Set<string>([...PLATFORM_SCHEMAS, ...roles]);
   const failedNames = new Set<string>();
   const missingNames = new Set<string>(
     entries.flatMap((entry) =>
@@ -681,24 +737,13 @@ export function judge(results: StatementResult[], entries: OracleEntry[]): Judge
   );
   const statuses = new Map<string, Status[]>(entries.map((entry) => [entry.id, []]));
   const sqlstates = new Map<string, Set<string>>(entries.map((entry) => [entry.id, new Set()]));
-  const unexplained: Judgement["unexplained"] = [];
-  const unattributed: Judgement["unattributed"] = [];
+  const named = new Map<string, Set<string>>(entries.map((entry) => [entry.id, new Set()]));
+  const unexplained: StatementRef[] = [];
+  const unattributed: StatementRef[] = [];
+  const platformAcl: StatementRef[] = [];
   const push = (id: string, status: Status, sqlstate?: string) => {
     statuses.get(id)?.push(status);
     if (sqlstate !== undefined) sqlstates.get(id)?.add(sqlstate);
-  };
-  // Ties, and entries that declare they fail, are where a platform reference belongs. The platform's own
-  // default privileges give its roles an ACL on every new object, so a grant to a platform role that no
-  // grant entry lists belongs to the default-privilege entries.
-  const attributable = (ids: string[], statement: Statement): string[] => {
-    const own = ids.filter((id) => {
-      const entry = byId.get(id);
-      return entry !== undefined && (entry.kind === "tie" || entry.mode === "load-fails");
-    });
-    if (own.length > 0 || !["GrantStmt", "AlterDefaultPrivilegesStmt"].includes(statement.kind)) return own;
-    return entries
-      .filter((entry) => entry.kind === "tie" && entry.objects.some((object) => object.kind === "default-privilege"))
-      .map((entry) => entry.id);
   };
 
   for (const { statement, outcome } of results) {
@@ -707,16 +752,28 @@ export function judge(results: StatementResult[], entries: OracleEntry[]): Judge
       for (const id of ids) push(id, "loaded");
       continue;
     }
-    const cause = causeOf(outcome.sqlstate, outcome.message, failedNames, missingNames);
+    const identifiers = identifiersIn(outcome.message);
+    const cause = causeOf(outcome.sqlstate, identifiers, failedNames, missingNames, platform);
     for (const name of nameable(targets.get(statement.index) ?? [])) failedNames.add(name);
     const { sqlstate } = outcome;
     if (cause === "dependency" || cause === "missing") {
       for (const id of ids) push(id, "cascade", sqlstate);
     } else if (cause === "platform") {
-      const own = attributable(ids, statement);
-      if (own.length === 0) unattributed.push({ index: statement.index, sqlstate });
+      // Ties, and entries that declare they fail, are where a platform reference belongs.
+      const own = ids.filter((id) => {
+        const entry = byId.get(id);
+        return entry !== undefined && (entry.kind === "tie" || entry.mode === "load-fails");
+      });
+      if (own.length === 0) {
+        const onlyRoles = namesAny(identifiers, roles) && !namesAny(identifiers, PLATFORM_SCHEMAS);
+        if (ids.length === 0 && ACL_KINDS.has(statement.kind) && onlyRoles) {
+          platformAcl.push({ index: statement.index, sqlstate });
+        } else unattributed.push({ index: statement.index, sqlstate });
+      }
       for (const id of ids) push(id, own.includes(id) || own.length === 0 ? "failed" : "cascade", sqlstate);
-      for (const id of own) if (!ids.includes(id)) push(id, "failed", sqlstate);
+      for (const id of own) {
+        for (const name of byId.get(id)?.failsOn ?? []) if (identifiers.has(name)) named.get(id)?.add(name);
+      }
     } else {
       unexplained.push({ index: statement.index, sqlstate });
       for (const id of ids) push(id, "unexplained", sqlstate);
@@ -727,20 +784,63 @@ export function judge(results: StatementResult[], entries: OracleEntry[]): Judge
     entries: entries.map((entry) => {
       const seen = statuses.get(entry.id) ?? [];
       const status = PRIORITY.find((one) => seen.includes(one)) ?? "absent";
-      return { id: entry.id, status, sqlstates: [...(sqlstates.get(entry.id) ?? [])].sort() };
+      return {
+        id: entry.id,
+        status,
+        named: [...(named.get(entry.id) ?? [])].sort(),
+        sqlstates: [...(sqlstates.get(entry.id) ?? [])].sort(),
+      };
     }),
     unexplained,
     unattributed,
+    platformAcl,
   };
 }
 
-// The verdict on an entry: whether its status meets its declared oracle mode. A `cascade` on a tie that
-// should fail, or on a control that should load and probe the same, is recorded and listed, not counted as
-// proof; a `not-in-dump` entry that is absent is excluded from the claim.
-export function verdictOf(entry: OracleEntry, status: Status, probe?: ProbeComparison): Verdict {
+// Every role the dump names, from the role specifications in its parse trees: grantees, policy roles, owners,
+// default-privilege roles. The live test creates the ones stock lacks as plain stand-ins for the `roles` pass.
+export function rolesOf(statements: Statement[]): string[] {
+  const found = new Set<string>();
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+    } else if (isRow(node)) {
+      // A RoleSpec is a node of its own in a list and a bare field elsewhere (an owner).
+      const name = "roletype" in node ? str(node["rolename"]) : undefined;
+      if (name !== undefined) found.add(name);
+      else for (const value of Object.values(node)) walk(value);
+    }
+  };
+  for (const statement of statements) walk(statement.tree);
+  return [...found].sort();
+}
+
+const isPlatformSchema = (name: string): boolean => PLATFORM_SCHEMAS.includes(name);
+
+// A failure is proof when it is the entry's own and names one of the accepted platform names; a cascade
+// is recorded and listed, not counted.
+function failureVerdict(pass: PassResult, accepted: readonly string[]): Verdict {
+  if (pass.status === "cascade") return "cascade";
+  return pass.status === "failed" && pass.named.some((name) => accepted.includes(name)) ? "proof" : "mismatch";
+}
+
+// The verdict on an entry: whether what the passes found meets its declared oracle mode. A `load-fails`
+// entry is judged on the `bare` pass; one that declares a schema name must also fail in the `roles` pass
+// naming a schema, so a missing role cannot stand in for a missing schema. A `cascade` on a tie that should
+// fail, or on a control that should load and probe the same, is recorded and listed, not counted as proof;
+// a `not-in-dump` entry that is absent is excluded from the claim. The probe modes read the `bare` pass.
+export function verdictOf(
+  entry: OracleEntry,
+  passes: { bare: PassResult; roles: PassResult },
+  probe?: ProbeComparison,
+): Verdict {
+  const { status } = passes.bare;
   switch (entry.mode) {
-    case "load-fails":
-      return status === "failed" ? "proof" : status === "cascade" ? "cascade" : "mismatch";
+    case "load-fails": {
+      const bare = failureVerdict(passes.bare, entry.failsOn);
+      const schemas = entry.failsOn.filter(isPlatformSchema);
+      return bare !== "proof" || schemas.length === 0 ? bare : failureVerdict(passes.roles, schemas);
+    }
     case "probe-same":
       if (status === "cascade") return "cascade";
       return status === "loaded" && probe === "same" ? "proof" : "mismatch";
@@ -767,16 +867,17 @@ export function oracleEntries(rows: Row[]): OracleEntry[] {
   return rows.flatMap((entry) => {
     const oracle = row(entry["oracle"]);
     const location = row(entry["location"]);
-    const mode = str(oracle?.["mode"]);
+    const mode = oracle?.["mode"];
     const objects = list(location?.["database"]);
-    if (oracle === undefined || mode === undefined || !MODES.includes(mode) || objects.length === 0) return [];
+    if (oracle === undefined || !isOracleMode(mode) || objects.length === 0) return [];
     const major = entry["postgres_major"];
     return [
       {
         id: String(entry["id"]),
         kind: entry["kind"] === "control" ? "control" : "tie",
-        mode: mode as OracleMode,
+        mode,
         probe: str(oracle["probe"]) ?? "",
+        failsOn: list(oracle["fails_on"]).filter((name) => typeof name === "string"),
         objects: objects.filter(isRow).map(toTarget),
         postgresMajor: typeof major === "number" ? major : undefined,
       },
@@ -852,8 +953,9 @@ export interface EntryReport {
   verdict: Verdict;
 }
 
-// Counts and lists for the summary; it holds ids, modes and SQLSTATEs only, never an object name or message.
-export function summarize(reports: EntryReport[]): string[] {
+// Counts and lists for the summary; it holds ids, modes, statement numbers and SQLSTATEs only, never an
+// object name or message.
+export function summarize(reports: EntryReport[], platformAcl: StatementRef[]): string[] {
   const count = (pick: (report: EntryReport) => string): string => {
     const counts = new Map<string, number>();
     for (const report of reports) counts.set(pick(report), (counts.get(pick(report)) ?? 0) + 1);
@@ -867,5 +969,6 @@ export function summarize(reports: EntryReport[]): string[] {
     `statuses: ${count((report) => report.status)}`,
     `cascade (recorded, not proof): ${ids("cascade").join(" ")}`,
     `not-in-dump (excluded from the claim): ${ids("excluded").join(" ")}`,
+    `platform ACL (grants to platform roles that no entry lists; not proof): ${String(platformAcl.length)} statements: ${platformAcl.map((one) => `${String(one.index)}:${one.sqlstate}`).join(" ")}`,
   ];
 }

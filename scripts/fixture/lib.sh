@@ -33,11 +33,24 @@ pulled_refs() {
   esac
 }
 
+# has_repo_digest REF DIGEST: does the local image found by REF record DIGEST among its repo digests? Docker
+# records a Docker Hub image as repo@sha256:..., not under docker.io/library/..., so only the digest part is
+# compared; a tag alone never matches.
+has_repo_digest() {
+  local line
+  while IFS= read -r line; do
+    [[ "$line" == *"@$2" ]] && return 0
+  done < <(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$1" 2>/dev/null)
+  return 1
+}
+
 # present_ref NAME: prints the first pulled name of NAME whose local image carries the pinned digest.
 present_ref() {
-  local pulled
+  local pulled digest
+  digest="$(ref "$1")"
+  digest="${digest##*@}"
   while IFS= read -r pulled; do
-    if docker image inspect --format '{{json .RepoDigests}}' "$pulled" 2>/dev/null | grep -qF "\"$pulled\""; then
+    if has_repo_digest "$pulled" "$digest"; then
       printf '%s\n' "$pulled"
       return 0
     fi

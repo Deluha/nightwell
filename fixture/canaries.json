@@ -48,7 +48,8 @@
       "note": "Synthetic. Imitates a human-chosen password made of words.",
       "planted_in": [
         "supabase_functions.http_request trigger grape_webhook on public.grape_varieties: URL path",
-        "user mapping for authenticated on server cellar_archive: password option"
+        "user mapping for authenticated on server cellar_archive: password option",
+        "foreign server cellar_archive: application_name option"
       ]
     },
     {

@@ -22,7 +22,8 @@ Nothing is released yet. Entries are added phase by phase and become the release
   code in several forms. All data is synthetic. It is scanned, never deployed. See `fixture/README.md`.
 - A manifest of every planted feature (feature area, tie or control, location, public source), held to
   the fixture by an offline and a live test.
-- An oracle that loads the fixture's non-managed schemas into stock PostgreSQL 17 and checks that each
-  tie fails or differs as declared and each control loads.
+- An oracle that loads the fixture's non-managed schemas into stock PostgreSQL 17, bare and with stand-in
+  roles, and checks that each tie fails on the platform names it declares or differs as declared and each
+  control loads; cascades are listed apart and never counted as proof.
 - CI boots the fixture on PostgreSQL 17 and 15 and runs the live tests and the oracle; a manually
   started workflow uploads schema dumps and platform-object query results as artefacts.

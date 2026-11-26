@@ -64,7 +64,8 @@ and `Path guard` are required on the default branch.
 
 The demo project lives in `fixture/`; the CLI project directory is `fixture/supabase/`.
 
-- Images are pinned by digest in `fixture/versions.env`, the single home of the pins.
+- Images are pinned by digest in `fixture/versions.env`, the single home of the pins; `start` stops the
+  fixture unless every running fixture container runs a pinned image.
 - `npm run fixture:start`, `fixture:reset` and `fixture:stop` run it. `start` takes `--pg 15` and
   `--with-pooler`; `NIGHTWELL_FIXTURE_LATEST=1` runs the newest CLI and images, unpinned.
 - `fixture/` is excluded from lint, format, static analysis and dependency updates (owner, 2026-11-26),

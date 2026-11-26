@@ -1,5 +1,5 @@
-// Shared by the offline and live manifest tests: reads fixture/manifest.yaml and holds the closed list
-// of database object kinds, each with the fields it must carry. One home for both (R6).
+// Shared by the manifest and oracle tests: reads fixture/manifest.yaml and holds the closed lists of
+// database object kinds, each with the fields it must carry, and of oracle modes. One home for all (R6).
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
 
@@ -52,10 +52,20 @@ export const OBJECT_KEYS = [
   "on",
 ] as const;
 
+// What the oracle holds a database entry to: `load-fails` and `not-in-dump` carry no probe, the others do.
+export const ORACLE_MODES = ["load-fails", "probe-same", "probe-differs", "not-in-dump"] as const;
+export type OracleMode = (typeof ORACLE_MODES)[number];
+
+// The fields of an entry's `oracle` mapping: `fails_on` belongs to `load-fails` only.
+export const ORACLE_KEYS = ["mode", "probe", "fails_on"] as const;
+
 export type Row = Record<string, unknown>;
 
 export const isRow = (value: unknown): value is Row =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+export const isOracleMode = (value: unknown): value is OracleMode =>
+  typeof value === "string" && (ORACLE_MODES as readonly string[]).includes(value);
 
 export const isObjectKind = (value: unknown): value is ObjectKind =>
   typeof value === "string" && Object.hasOwn(OBJECT_FIELDS, value);

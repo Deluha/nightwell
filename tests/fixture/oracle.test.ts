@@ -5,17 +5,21 @@ import { loadModule } from "libpg-query";
 import {
   attribute,
   buildLoadScript,
+  identifiersIn,
   isManagedSchema,
   judge,
   normalizeArgs,
   oracleEntries,
   parseLoadOutput,
+  rolesOf,
   splitDump,
   summarize,
   targetsOf,
   verdictOf,
+  type Judgement,
   type Outcome,
   type OracleEntry,
+  type PassResult,
   type Status,
   type Target,
 } from "./oracle.ts";
@@ -283,12 +287,28 @@ const entry = (
   oracle: mode.startsWith("probe-") ? { mode, probe: "select 1" } : { mode },
 });
 
+// A load-fails entry that declares the platform names its failure must name.
+const failing = (
+  id: string,
+  kind: "tie" | "control",
+  failsOn: string[],
+  ...objects: Record<string, string>[]
+): Record<string, unknown> => ({
+  id,
+  kind,
+  location: { database: objects },
+  oracle: { mode: "load-fails", fails_on: failsOn },
+});
+
+// The roles the synthetic dump names that stock lacks.
+const ROLES = ["anon", "authenticated", "service_role"];
+
 const ENTRIES = oracleEntries([
-  entry("tie-default", "tie", "load-fails", { object: "column-default", schema: "public", table: "t", name: "who" }),
+  failing("tie-default", "tie", ["auth"], { object: "column-default", schema: "public", table: "t", name: "who" }),
   entry("control-check", "control", "probe-same", { object: "constraint", schema: "public", table: "t", name: "ok_c" }),
   entry("control-rls", "control", "probe-same", { object: "rls", schema: "public", table: "t" }),
   entry("control-table", "control", "probe-same", { object: "table", schema: "public", name: "u" }),
-  entry("tie-policy", "tie", "load-fails", { object: "policy", schema: "public", table: "u", name: "p" }),
+  failing("tie-policy", "tie", ["authenticated"], { object: "policy", schema: "public", table: "u", name: "p" }),
   entry("tie-function", "tie", "probe-differs", { object: "function", schema: "public", name: "f", args: "cellar uuid" }),
   entry("tie-extension", "tie", "not-in-dump", { object: "extension", name: "vector", schema: "extensions" }),
   entry("control-server", "control", "probe-same", { object: "foreign-server", name: "srv" }, {
@@ -298,19 +318,19 @@ const ENTRIES = oracleEntries([
   }),
   entry("control-comment", "control", "probe-same", { object: "comment", schema: "public", table: "u", column: "id" }),
   entry("control-column", "control", "probe-same", { object: "column", schema: "public", table: "u", name: "x" }),
-  entry("control-names-role", "control", "load-fails", {
+  failing("control-names-role", "control", ["anon"], {
     object: "policy",
     schema: "public",
     table: "u",
     name: "q",
   }),
-  entry(
+  failing(
     "tie-default-privileges",
     "tie",
-    "load-fails",
+    ["authenticated"],
     { object: "default-privilege", schema: "public", name: "tables", role: "authenticated", privilege: "select" },
   ),
-  entry("tie-grant", "tie", "load-fails", {
+  failing("tie-grant", "tie", ["authenticated"], {
     object: "grant",
     on: "function",
     schema: "public",
@@ -340,17 +360,28 @@ const SQL = [
 const fail = (sqlstate: string, message: string): Outcome => ({ ok: false, sqlstate, message });
 const OK: Outcome = { ok: true };
 
-function run(outcomes: Outcome[], entries = ENTRIES) {
-  const statements = splitDump(SQL);
-  expect(statements).toHaveLength(13);
+function run(outcomes: Outcome[], entries = ENTRIES, sql = SQL, roles: readonly string[] = ROLES) {
+  const statements = splitDump(sql);
   return judge(
     statements.map((statement, index) => ({ statement, outcome: outcomes[index] ?? OK })),
     entries,
+    roles,
   );
 }
 
-const statusOf = (judgement: ReturnType<typeof run>, id: string): Status | undefined =>
+const statusOf = (judgement: Judgement, id: string): Status | undefined =>
   judgement.entries.find((one) => one.id === id)?.status;
+
+const passOf = (judgement: Judgement, id: string): PassResult => {
+  const found = judgement.entries.find((one) => one.id === id);
+  return { status: found?.status ?? "absent", named: found?.named ?? [] };
+};
+
+const entryOf = (id: string, entries = ENTRIES): OracleEntry => {
+  const found = entries.find((one) => one.id === id);
+  if (found === undefined) throw new Error(`no entry ${id}`);
+  return found;
+};
 
 describe("attribute", () => {
   const statements = splitDump(SQL);
@@ -421,18 +452,43 @@ describe("judge", () => {
     expect(judgement.unattributed).toEqual([]);
   });
 
-  test("a grant to a platform role no grant entry lists belongs to the default-privilege entries", () => {
+  test("a grant to a platform role no entry owns goes to the platform ACL, and no entry is credited", () => {
     const role = fail("42704", 'role "service_role" does not exist');
     const judgement = run([OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, role]);
-    expect(statusOf(judgement, "tie-default-privileges")).toBe("failed");
+    expect(judgement.platformAcl).toEqual([{ index: 11, sqlstate: "42704" }]);
+    expect(statusOf(judgement, "tie-default-privileges")).toBe("loaded");
     expect(statusOf(judgement, "control-table")).toBe("loaded");
     expect(judgement.unattributed).toEqual([]);
+    expect(judgement.unexplained).toEqual([]);
   });
 
-  test("a platform failure no tie, declared failure or default privilege explains is unattributed", () => {
-    const alone = ENTRIES.filter((one) => one.id !== "tie-default-privileges");
-    const judgement = run([OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, fail("42704", 'role "anon" does not exist')], alone);
-    expect(judgement.unattributed).toEqual([{ index: 11, sqlstate: "42704" }]);
+  test("an entry whose own statement loads is a mismatch even when other grants fail", () => {
+    const failed = fail("42704", 'role "authenticated" does not exist');
+    const judgement = run([OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, failed, failed]);
+    // statement 9 (the default privilege entry's own) loaded; 10 is the grant entry's own, 11 is no one's
+    expect(passOf(judgement, "tie-default-privileges").status).toBe("loaded");
+    expect(verdictOf(entryOf("tie-default-privileges"), { bare: passOf(judgement, "tie-default-privileges"), roles: passOf(judgement, "tie-default-privileges") })).toBe("mismatch");
+    expect(passOf(judgement, "tie-grant")).toEqual({ status: "failed", named: ["authenticated"] });
+    expect(judgement.platformAcl).toEqual([{ index: 11, sqlstate: "42704" }]);
+  });
+
+  test("a failure on a platform role in a statement an entry owns is that entry's, not the platform ACL's", () => {
+    const failed = fail("42704", 'role "authenticated" does not exist');
+    const judgement = run([OK, OK, OK, OK, OK, OK, OK, OK, OK, failed]);
+    expect(passOf(judgement, "tie-default-privileges")).toEqual({ status: "failed", named: ["authenticated"] });
+    expect(judgement.platformAcl).toEqual([]);
+  });
+
+  test("a grant failing on something other than a role is unattributed, not platform ACL", () => {
+    const judgement = run([OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, fail("3F000", 'schema "auth" does not exist')]);
+    expect(judgement.platformAcl).toEqual([]);
+    expect(judgement.unattributed).toEqual([{ index: 11, sqlstate: "3F000" }]);
+  });
+
+  test("a platform failure in a statement no entry owns, and not a grant, is unattributed", () => {
+    const judgement = run([OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, fail("3F000", 'schema "auth" does not exist')]);
+    expect(judgement.unattributed).toEqual([{ index: 12, sqlstate: "3F000" }]);
+    expect(judgement.platformAcl).toEqual([]);
   });
 
   test("a failure no rule explains is unexplained", () => {
@@ -471,47 +527,162 @@ describe("judge", () => {
     const judgement = run([OK, OK, OK, OK, OK, fail("42601", 'syntax error at or near "auth_audit"')]);
     expect(judgement.unexplained).toEqual([{ index: 5, sqlstate: "42601" }]);
   });
+
+  test("a failure names a failed object as a whole identifier: a short name is not inside a longer one", () => {
+    const tt = fail("42P01", 'relation "public.tt" does not exist');
+    // statement 0 creates public.t and fails; a later failure naming public.tt is not a cascade of it
+    const judgement = run([missingAuth, OK, OK, OK, OK, tt]);
+    expect(statusOf(judgement, "control-column")).toBe("unexplained");
+    expect(judgement.unexplained).toEqual([{ index: 5, sqlstate: "42P01" }]);
+    const t = fail("42P01", 'relation "public.t" does not exist');
+    expect(statusOf(run([missingAuth, OK, OK, OK, OK, t]), "control-column")).toBe("cascade");
+  });
+});
+
+describe("what a failure must name", () => {
+  const roleless = fail("42704", 'role "authenticated" does not exist');
+  const noAuth = fail("3F000", 'schema "auth" does not exist');
+  const noExtensions = fail("3F000", 'schema "extensions" does not exist');
+  const mixed = oracleEntries([
+    failing("tie-mixed", "tie", ["authenticated", "auth"], { object: "policy", schema: "public", table: "u", name: "p" }),
+  ]);
+  const verdict = (bare: Judgement, roles: Judgement, entries = mixed) =>
+    verdictOf(entryOf(entries[0]?.id ?? "", entries), {
+      bare: passOf(bare, entries[0]?.id ?? ""),
+      roles: passOf(roles, entries[0]?.id ?? ""),
+    });
+  const policy = [OK, OK, OK];
+
+  test("a missing role does not stand in for a missing schema: the roles pass must fail on the schema", () => {
+    const bare = run([...policy, roleless], mixed);
+    expect(passOf(bare, "tie-mixed")).toEqual({ status: "failed", named: ["authenticated"] });
+    expect(verdict(bare, run([...policy, OK], mixed))).toBe("mismatch");
+    expect(verdict(bare, run([...policy, roleless], mixed))).toBe("mismatch");
+    expect(verdict(bare, run([...policy, noAuth], mixed))).toBe("proof");
+  });
+
+  test("a role-only entry is judged on the bare pass alone", () => {
+    const roleOnly = oracleEntries([
+      failing("tie-roles", "tie", ["authenticated"], { object: "policy", schema: "public", table: "u", name: "p" }),
+    ]);
+    const bare = run([...policy, roleless], roleOnly);
+    expect(verdict(bare, run([...policy, OK], roleOnly), roleOnly)).toBe("proof");
+  });
+
+  test("another platform schema's failure does not prove an entry that declares auth", () => {
+    const authOnly = oracleEntries([
+      failing("tie-auth", "tie", ["auth"], { object: "column-default", schema: "public", table: "t", name: "who" }),
+    ]);
+    const masked = run([noExtensions], authOnly);
+    expect(passOf(masked, "tie-auth")).toEqual({ status: "failed", named: [] });
+    expect(verdict(masked, masked, authOnly)).toBe("mismatch");
+    const proven = run([noAuth], authOnly);
+    expect(verdict(proven, proven, authOnly)).toBe("proof");
+  });
+
+  test("a name inside a longer identifier is not named", () => {
+    const authOnly = oracleEntries([
+      failing("tie-auth", "tie", ["auth"], { object: "column-default", schema: "public", table: "t", name: "who" }),
+    ]);
+    const both = run([fail("3F000", 'schema "extensions" does not exist for "auth_audit.x"')], authOnly);
+    expect(passOf(both, "tie-auth").named).toEqual([]);
+  });
+
+  test("a failure that is a cascade of an earlier object stays a cascade, in either pass", () => {
+    const gone = fail("42P01", 'relation "public.t" does not exist');
+    const bare = run([noAuth, OK, OK, OK, OK, OK, OK, OK, OK, OK, OK, OK], mixed);
+    expect(statusOf(bare, "tie-mixed")).toBe("loaded");
+    const cascaded = run([noAuth, OK, OK, gone], mixed);
+    expect(passOf(cascaded, "tie-mixed").status).toBe("cascade");
+    expect(verdict(cascaded, cascaded)).toBe("cascade");
+    expect(verdict(run([...policy, roleless], mixed), cascaded)).toBe("cascade");
+  });
+});
+
+describe("identifiersIn", () => {
+  test("names whole identifiers, quoted or bare, with their qualified form", () => {
+    const found = identifiersIn('relation "public.t" does not exist, function auth.uid() and "it""s" and "a.b".c');
+    for (const name of ["public", "t", "public.t", "auth", "uid", "auth.uid", 'it"s', "a", "b", "c"]) {
+      expect(found.has(name), name).toBe(true);
+    }
+    for (const name of ["pub", "au", "u", "relation x"]) expect(found.has(name), name).toBe(false);
+  });
+
+  test("does not find a name inside a longer one", () => {
+    const found = identifiersIn('syntax error at or near "auth_audit" and "unauthorized"');
+    expect(found.has("auth")).toBe(false);
+    expect(found.has("auth_audit")).toBe(true);
+  });
+});
+
+describe("rolesOf", () => {
+  test("lists every role a statement names, from its parse tree, and no pseudo-role", () => {
+    const statements = splitDump(`
+      grant select on table public.t to anon, authenticated, public;
+      create policy p on public.t for select to service_role, current_user using (true);
+      alter default privileges for role supabase_admin in schema public grant all on tables to anon;
+      alter table public.t owner to postgres;
+      select 1;`);
+    expect(rolesOf(statements)).toEqual(["anon", "authenticated", "postgres", "service_role", "supabase_admin"]);
+  });
 });
 
 describe("verdictOf", () => {
-  const modeOf = (mode: OracleEntry["mode"]): OracleEntry => ({
+  const modeOf = (mode: OracleEntry["mode"], failsOn: string[] = []): OracleEntry => ({
     id: "x",
     kind: "tie",
     mode,
     probe: "",
+    failsOn,
     objects: [],
     postgresMajor: undefined,
   });
+  const at = (status: Status, ...named: string[]): PassResult => ({ status, named });
+  const same = (pass: PassResult) => ({ bare: pass, roles: pass });
 
-  test("load-fails: a failure is proof, a cascade is listed, anything else is a mismatch", () => {
-    expect(verdictOf(modeOf("load-fails"), "failed")).toBe("proof");
-    expect(verdictOf(modeOf("load-fails"), "cascade")).toBe("cascade");
+  test("load-fails: an own failure naming a declared name is proof, a cascade is listed, anything else is a mismatch", () => {
+    const entry = modeOf("load-fails", ["anon"]);
+    expect(verdictOf(entry, same(at("failed", "anon")))).toBe("proof");
+    expect(verdictOf(entry, same(at("failed")))).toBe("mismatch");
+    expect(verdictOf(entry, same(at("cascade")))).toBe("cascade");
     for (const status of ["loaded", "absent", "unexplained"] as const) {
-      expect(verdictOf(modeOf("load-fails"), status)).toBe("mismatch");
+      expect(verdictOf(entry, same(at(status)))).toBe("mismatch");
     }
+    expect(verdictOf(modeOf("load-fails"), same(at("failed", "anon")))).toBe("mismatch");
+  });
+
+  test("load-fails with a schema name: the roles pass must fail naming a schema too", () => {
+    const entry = modeOf("load-fails", ["authenticated", "auth"]);
+    const bare = at("failed", "authenticated");
+    expect(verdictOf(entry, { bare, roles: at("failed", "auth") })).toBe("proof");
+    expect(verdictOf(entry, { bare, roles: at("failed", "authenticated") })).toBe("mismatch");
+    expect(verdictOf(entry, { bare, roles: at("loaded") })).toBe("mismatch");
+    expect(verdictOf(entry, { bare, roles: at("cascade") })).toBe("cascade");
+    expect(verdictOf(entry, { bare: at("failed"), roles: at("failed", "auth") })).toBe("mismatch");
+    expect(verdictOf(entry, { bare: at("cascade"), roles: at("failed", "auth") })).toBe("cascade");
   });
 
   test("probe-same: loaded with equal rows is proof, a cascade is listed, the rest is a mismatch", () => {
-    expect(verdictOf(modeOf("probe-same"), "loaded", "same")).toBe("proof");
-    expect(verdictOf(modeOf("probe-same"), "cascade")).toBe("cascade");
-    expect(verdictOf(modeOf("probe-same"), "loaded", "differs")).toBe("mismatch");
-    expect(verdictOf(modeOf("probe-same"), "loaded", "failed")).toBe("mismatch");
-    expect(verdictOf(modeOf("probe-same"), "loaded")).toBe("mismatch");
-    expect(verdictOf(modeOf("probe-same"), "failed")).toBe("mismatch");
+    const loaded = same(at("loaded"));
+    expect(verdictOf(modeOf("probe-same"), loaded, "same")).toBe("proof");
+    expect(verdictOf(modeOf("probe-same"), same(at("cascade")))).toBe("cascade");
+    expect(verdictOf(modeOf("probe-same"), loaded, "differs")).toBe("mismatch");
+    expect(verdictOf(modeOf("probe-same"), loaded)).toBe("mismatch");
+    expect(verdictOf(modeOf("probe-same"), same(at("failed")))).toBe("mismatch");
   });
 
-  test("probe-differs: loaded with different rows is proof; a cascade is not", () => {
-    expect(verdictOf(modeOf("probe-differs"), "loaded", "differs")).toBe("proof");
-    expect(verdictOf(modeOf("probe-differs"), "loaded", "same")).toBe("mismatch");
-    expect(verdictOf(modeOf("probe-differs"), "loaded", "failed")).toBe("mismatch");
-    expect(verdictOf(modeOf("probe-differs"), "cascade")).toBe("mismatch");
-    expect(verdictOf(modeOf("probe-differs"), "failed", "differs")).toBe("mismatch");
+  test("probe-differs: loaded with different outcomes is proof; a cascade is not", () => {
+    const loaded = same(at("loaded"));
+    expect(verdictOf(modeOf("probe-differs"), loaded, "differs")).toBe("proof");
+    expect(verdictOf(modeOf("probe-differs"), loaded, "same")).toBe("mismatch");
+    expect(verdictOf(modeOf("probe-differs"), same(at("cascade")))).toBe("mismatch");
+    expect(verdictOf(modeOf("probe-differs"), same(at("failed")), "differs")).toBe("mismatch");
   });
 
   test("not-in-dump: absent is excluded from the claim; anything in the dump is a mismatch", () => {
-    expect(verdictOf(modeOf("not-in-dump"), "absent")).toBe("excluded");
-    expect(verdictOf(modeOf("not-in-dump"), "loaded")).toBe("mismatch");
-    expect(verdictOf(modeOf("not-in-dump"), "cascade")).toBe("mismatch");
+    expect(verdictOf(modeOf("not-in-dump"), same(at("absent")))).toBe("excluded");
+    expect(verdictOf(modeOf("not-in-dump"), same(at("loaded")))).toBe("mismatch");
+    expect(verdictOf(modeOf("not-in-dump"), same(at("cascade")))).toBe("mismatch");
   });
 });
 
@@ -522,6 +693,7 @@ describe("oracleEntries", () => {
       { id: "db.bad", kind: "tie", location: { database: [] }, oracle: { mode: "load-fails" } },
       { id: "db.odd", kind: "tie", location: { database: [{ object: "table", schema: "s", name: "n" }] }, oracle: { mode: "other" } },
       { id: "db.ok", kind: "control", postgres_major: 15, location: { database: [{ object: "function", schema: "s", name: "f", args: "a uuid" }] }, oracle: { mode: "probe-same", probe: "select 1" } },
+      { id: "db.fails", kind: "tie", location: { database: [{ object: "table", schema: "s", name: "n" }] }, oracle: { mode: "load-fails", fails_on: ["auth", 7, "anon"] } },
     ]);
     expect(found).toEqual([
       {
@@ -529,8 +701,18 @@ describe("oracleEntries", () => {
         kind: "control",
         mode: "probe-same",
         probe: "select 1",
+        failsOn: [],
         objects: [{ kind: "function", schema: "s", name: "f", args: "uuid" }],
         postgresMajor: 15,
+      },
+      {
+        id: "db.fails",
+        kind: "tie",
+        mode: "load-fails",
+        probe: "",
+        failsOn: ["auth", "anon"],
+        objects: [{ kind: "table", schema: "s", name: "n" }],
+        postgresMajor: undefined,
       },
     ]);
   });
@@ -588,17 +770,21 @@ describe("the load script and its output", () => {
 
 describe("summarize", () => {
   test("counts verdicts and statuses and lists the cascades and the excluded entries by id", () => {
-    const lines = summarize([
-      { id: "a", mode: "load-fails", status: "failed", sqlstates: ["42704"], verdict: "proof" },
-      { id: "b", mode: "probe-same", status: "cascade", sqlstates: ["42P01"], verdict: "cascade" },
-      { id: "c", mode: "not-in-dump", status: "absent", sqlstates: [], verdict: "excluded" },
-    ]);
+    const lines = summarize(
+      [
+        { id: "a", mode: "load-fails", status: "failed", sqlstates: ["42704"], verdict: "proof" },
+        { id: "b", mode: "probe-same", status: "cascade", sqlstates: ["42P01"], verdict: "cascade" },
+        { id: "c", mode: "not-in-dump", status: "absent", sqlstates: [], verdict: "excluded" },
+      ],
+      [{ index: 7, sqlstate: "42704" }],
+    );
     expect(lines).toEqual([
       "oracle: 3 entries",
       "verdicts: proof 1, cascade 1, excluded 1",
       "statuses: failed 1, cascade 1, absent 1",
       "cascade (recorded, not proof): b",
       "not-in-dump (excluded from the claim): c",
+      "platform ACL (grants to platform roles that no entry lists; not proof): 1 statements: 7:42704",
     ]);
   });
 });

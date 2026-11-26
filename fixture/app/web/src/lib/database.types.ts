@@ -25,7 +25,35 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "archived_bottles": {
+            "##[group]nightwell": {
+                  Row: {
+                    "../../etc/passwd": string | null,"back\\slash": string | null,"back`tick": string | null,"id": number,"it's": string | null,"line\nbreak": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "../../etc/passwd"?: string | null,"back\\slash"?: string | null,"back`tick"?: string | null,"id": number,"it's"?: string | null,"line\nbreak"?: string | null
+                  }
+                  Update: {
+                    "../../etc/passwd"?: string | null,"back\\slash"?: string | null,"back`tick"?: string | null,"id"?: number,"it's"?: string | null,"line\nbreak"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"<script>alert(1)</script>": {
+                  Row: {
+                    "::error file=x::nightwell": string | null,"\u001b[31mred": string | null,"id": number,"say \"hi\"": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "::error file=x::nightwell"?: string | null,"\u001b[31mred"?: string | null,"id": number,"say \"hi\""?: string | null
+                  }
+                  Update: {
+                    "::error file=x::nightwell"?: string | null,"\u001b[31mred"?: string | null,"id"?: number,"say \"hi\""?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"archived_bottles": {
                   Row: {
                     "id": number | null,"name": string | null,"vintage": number | null
                   }
@@ -39,16 +67,42 @@ export type Database = {
                   Relationships: [
                     
                   ]
-                },"bottles": {
+                },"bottle_embeddings": {
                   Row: {
-                    "added_by": string,"cellar_id": string,"flavour_embedding": string | null,"id": number,"name": string,"quantity": number,"vintage": number | null,"vintage_decade": number | null
+                    "bottle_id": number,"flavour_embedding": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "added_by"?: string,"cellar_id": string,"flavour_embedding"?: string | null,"id"?: never,"name": string,"quantity"?: number,"vintage"?: number | null,"vintage_decade"?: never
+                    "bottle_id": number,"flavour_embedding"?: string | null
                   }
                   Update: {
-                    "added_by"?: string,"cellar_id"?: string,"flavour_embedding"?: string | null,"id"?: never,"name"?: string,"quantity"?: number,"vintage"?: number | null,"vintage_decade"?: never
+                    "bottle_id"?: number,"flavour_embedding"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "bottle_embeddings_bottle_id_fkey"
+      columns: ["bottle_id"]
+isOneToOne: true
+      referencedRelation: "bottles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "bottle_embeddings_bottle_id_fkey"
+      columns: ["bottle_id"]
+isOneToOne: true
+      referencedRelation: "my_bottles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"bottles": {
+                  Row: {
+                    "added_by": string,"cellar_id": string,"id": number,"name": string,"quantity": number,"vintage": number | null,"vintage_decade": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "added_by"?: string,"cellar_id": string,"id"?: never,"name": string,"quantity"?: number,"vintage"?: number | null,"vintage_decade"?: never
+                  }
+                  Update: {
+                    "added_by"?: string,"cellar_id"?: string,"id"?: never,"name"?: string,"quantity"?: number,"vintage"?: number | null,"vintage_decade"?: never
                   }
                   Relationships: [
                     {
@@ -75,6 +129,20 @@ isOneToOne: false
                   }
                   Update: {
                     "created_at"?: string | null,"created_by"?: string,"id"?: string,"is_public"?: boolean,"name"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"grape_varieties": {
+                  Row: {
+                    "colour": string,"id": number,"legacy_token": string | null,"name": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "colour": string,"id"?: never,"legacy_token"?: string | null,"name": string
+                  }
+                  Update: {
+                    "colour"?: string,"id"?: never,"legacy_token"?: string | null,"name"?: string
                   }
                   Relationships: [
                     
@@ -210,6 +278,14 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"hostile_view": {
+                  Row: {
+                    "label": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    
+                  ]
                 },"my_bottles": {
                   Row: {
                     "cellar_id": string,"id": number,"name": string,"quantity": number,"vintage": number | null
@@ -236,10 +312,36 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"partner_feed": {
+                  Row: {
+                    "feed_key": string | null,"id": number,"name": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                           "feed_key"?: never,"id"?: number | null,"name"?: string | null
+                         }
+                        Update: {
+                           "feed_key"?: never,"id"?: number | null,"name"?: string | null
+                         }
+                        Relationships: [
+                    
+                  ]
                 }
           }
           Functions: {
-            "add_bottle":
+            "::error file=x::fn":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"\u001b[31mfn":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"##[group]fn":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"<script>fn</script>":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"add_bottle":
 { Args: { "bottle_name": string,"bottle_vintage": number,"cellar": string }; Returns: number
                            },
 "announce_pour":
@@ -262,11 +364,26 @@ isOneToOne: false
 "custom_access_token_hook":
 { Args: { "event": Json }; Returns: Json
                            },
+"fn'quote\"double`tick":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"helper_name_text":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"hostile_text":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "new_share_code":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"now":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
 "public_cellar_count":
 { Args: Record<PropertyKey, never>; Returns: number
+                           },
+"reader_label":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "request_restock":
 { Args: { "bottle": number }; Returns: number
@@ -275,7 +392,6 @@ isOneToOne: false
 { Args: { "q": string }; Returns: {
               "added_by": string,
 "cellar_id": string,
-"flavour_embedding": string | null,
 "id": number,
 "name": string,
 "quantity": number,

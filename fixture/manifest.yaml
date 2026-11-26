@@ -1,9 +1,12 @@
 # The planted-feature manifest of the Cellarbook fixture: one entry per `planted:` marker under fixture/.
-# Commit 11's oracle and Phase 2's check-rules read it. It is hand-kept (nothing regenerates it) and
+# The oracle (tests/fixture/oracle.live.test.ts) and the rule checker read it. It is hand-kept (nothing regenerates it) and
 # tests/fixture/manifest.test.ts holds it to the fixture; the live test holds database entries to the
 # running database. Fields: id (the marker id), area (a feature area), kind (tie or control), description,
 # location (database objects, or file and symbol), sources (accepted hosts, with the date read),
 # expected_rules (rule ids, filled as rules arrive), pending, and for database entries the oracle mode.
+# An entry whose oracle mode is load-fails also lists fails_on: the platform schema and role names its own
+# failure must name. fails_on is an optional field added within manifest_version 1: no other mode carries
+# it, and the offline test requires it on every load-fails entry.
 manifest_version: 1
 entries:
   - id: db.cellars-auth-uid-default
@@ -17,9 +20,10 @@ entries:
     sources:
       - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    note: "Unverified: the cited pages show auth.uid() only in policies and in its definition, not as a column default."
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [auth] }
   - id: db.members-auth-users-fk
     area: auth
     kind: tie
@@ -31,7 +35,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [auth] }
   - id: db.profiles-auth-users-fk
     area: auth
     kind: tie
@@ -44,20 +48,19 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [auth] }
   - id: db.profiles-new-user-trigger
     area: auth
     kind: tie
     description: "Security-definer function handle_new_user and a trigger on auth.users that inserts the profile row"
     location:
       database:
-        - { object: function, schema: public, name: handle_new_user, args: "" }
         - { object: trigger, schema: auth, table: users, name: on_auth_user_created }
     sources:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: probe-differs, probe: "select count(*) from pg_trigger where tgname = 'on_auth_user_created' and not tgisinternal" }
+    oracle: { mode: not-in-dump }
   - id: db.bottles-quantity-check
     area: auth
     kind: control
@@ -79,9 +82,10 @@ entries:
     sources:
       - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    note: "Unverified: the cited pages show auth.uid() only in policies and in its definition, not as a column default."
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [auth] }
   - id: db.bottles-auth-uid-check
     area: auth
     kind: tie
@@ -92,9 +96,10 @@ entries:
     sources:
       - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    note: "Unverified: the cited pages show auth.uid() only in policies and in its definition, not as a check constraint."
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [auth] }
   - id: db.bottles-generated-column
     area: database
     kind: control
@@ -173,7 +178,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated] }
   - id: db.default-privileges-functions
     area: rest
     kind: tie
@@ -185,7 +190,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated] }
   - id: db.grants-built-in-roles
     area: rest
     kind: tie
@@ -201,7 +206,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [anon, authenticated, service_role] }
   - id: db.private-schema-definer-helper
     area: auth
     kind: tie
@@ -216,7 +221,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated] }
   - id: db.policy-uid-bare
     area: auth
     kind: tie
@@ -229,7 +234,7 @@ entries:
       - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated, auth] }
   - id: db.policy-request-setting
     area: auth
     kind: tie
@@ -241,7 +246,7 @@ entries:
       - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated] }
   - id: db.policy-uid-select-wrapped
     area: auth
     kind: tie
@@ -255,7 +260,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated, auth] }
   - id: db.policy-via-definer-function
     area: auth
     kind: tie
@@ -271,7 +276,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated] }
   - id: db.policy-jwt-claim
     area: auth
     kind: tie
@@ -284,7 +289,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/custom-claims-and-role-based-access-control-rbac.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated, auth] }
   - id: db.policy-auth-role
     area: auth
     kind: tie
@@ -297,7 +302,7 @@ entries:
     note: "The current docs read do not show auth.role(); the source is the helper definition, whose comment marks it deprecated."
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated, auth] }
   - id: db.policy-auth-email
     area: auth
     kind: tie
@@ -310,7 +315,7 @@ entries:
     note: "The current docs read do not show auth.email(); the source is the helper definition, whose comment marks it deprecated."
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated, auth] }
   - id: db.policy-to-anon
     area: rest
     kind: tie
@@ -322,7 +327,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [anon] }
   - id: db.policy-standard-only
     area: auth
     kind: control
@@ -346,7 +351,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [auth, authenticated] }
   - id: db.matview-helper
     area: auth
     kind: tie
@@ -358,7 +363,7 @@ entries:
       - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [auth] }
   - id: db.function-plpgsql-helpers
     area: auth
     kind: tie
@@ -370,7 +375,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: probe-differs, probe: "select to_regprocedure('auth.uid()') is not null and to_regprocedure('auth.role()') is not null" }
+    oracle: { mode: probe-differs, probe: "select public.add_bottle('00000000-0000-4000-8000-0000000000aa', 'Probe', 2000)" }
   - id: db.function-dynamic-sql
     area: auth
     kind: tie
@@ -382,7 +387,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: probe-differs, probe: "select to_regprocedure('auth.uid()') is not null" }
+    oracle: { mode: probe-differs, probe: "select public.count_rows('grape_varieties')" }
   - id: db.function-plain-sql
     area: auth
     kind: control
@@ -509,7 +514,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/broadcast.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [realtime] }
   - id: db.realtime-send-call
     area: realtime
     kind: tie
@@ -521,7 +526,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/broadcast.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: probe-differs, probe: "select to_regprocedure('realtime.send(jsonb,text,text,boolean)') is not null" }
+    oracle: { mode: probe-differs, probe: "select set_config('request.jwt.claims', '{\"sub\":\"00000000-0000-4000-8000-000000000001\"}', false); select public.announce_pour('10000000-0000-4000-8000-000000000001')" }
   - id: db.topic-parser
     area: realtime
     kind: control
@@ -694,19 +699,19 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/pg_jsonschema.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [extensions] }
   - id: db.vector-column
     area: database
     kind: tie
-    description: "Column bottles.flavour_embedding has type extensions.vector(3)"
+    description: "Column bottle_embeddings.flavour_embedding has type extensions.vector(3)"
     location:
       database:
-        - { object: column, schema: public, table: bottles, name: flavour_embedding }
+        - { object: column, schema: public, table: bottle_embeddings, name: flavour_embedding }
     sources:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/pgvector.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [extensions] }
   - id: db.function-pgcrypto-mixed
     area: database
     kind: tie
@@ -718,7 +723,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: probe-differs, probe: "select to_regprocedure('extensions.gen_random_bytes(integer)') is not null" }
+    oracle: { mode: probe-differs, probe: "select public.new_share_code() is not null" }
   - id: db.webhook-trigger
     area: edge-functions
     kind: tie
@@ -730,7 +735,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/webhooks.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [supabase_functions] }
   - id: db.vault-secret
     area: database
     kind: tie
@@ -768,7 +773,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/queues/pgmq.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: probe-differs, probe: "select count(*) > 0 from pg_proc where pronamespace = to_regnamespace('pgmq') and proname = 'send'" }
+    oracle: { mode: probe-differs, probe: "select public.request_restock(1)" }
   - id: db.foreign-server-postgres-fdw
     area: database
     kind: control
@@ -798,7 +803,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/auth-hooks.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [supabase_auth_admin] }
   - id: db.rpc-search-bottles
     area: rest
     kind: tie
@@ -812,7 +817,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated] }
   - id: db.rpc-cellar-summary
     area: rest
     kind: tie
@@ -826,7 +831,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated] }
   - id: db.rpc-anon-execute
     area: rest
     kind: tie
@@ -839,20 +844,19 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [anon] }
   - id: db.pgrst-pre-request
     area: rest
     kind: tie
     description: "Role setting pgrst.db_pre_request on authenticator names function check_request"
     location:
       database:
-        - { object: function, schema: public, name: check_request, args: "" }
         - { object: role-setting, role: authenticator, setting: "pgrst.db_pre_request" }
     sources:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: probe-differs, probe: "select count(*) from pg_db_role_setting s join pg_roles r on r.oid = s.setrole cross join lateral unnest(s.setconfig) as kv where r.rolname = 'authenticator' and split_part(kv, '=', 1) = 'pgrst.db_pre_request'" }
+    oracle: { mode: not-in-dump }
   - id: db.pg15-only-pgjwt-plv8
     area: database
     kind: tie
@@ -997,7 +1001,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/webhooks.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [supabase_functions] }
   - id: db.canary-cron-command
     area: edge-functions
     kind: tie
@@ -1034,6 +1038,19 @@ entries:
     expected_rules: []
     pending: false
     oracle: { mode: not-in-dump }
+  - id: db.canary-server-option
+    area: database
+    kind: tie
+    description: "Foreign server cellar_archive holds a canary application_name option"
+    location:
+      database:
+        - { object: foreign-server, name: cellar_archive }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/postgres_fdw.mdx", read: 2026-11-26 }
+    note: "Unverified: the page read shows server options only as `alter server ... options (...)` for fetch_size, batch_size and extensions, not application_name; that postgres_fdw takes application_name as a server option rests on the PostgreSQL manual, which could not be read. The fixture's PostgreSQL 15 and 17 accept it."
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
   - id: db.canary-policy-literal
     area: rest
     kind: tie
@@ -1045,7 +1062,7 @@ entries:
       - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
     expected_rules: []
     pending: false
-    oracle: { mode: load-fails }
+    oracle: { mode: load-fails, fails_on: [authenticated] }
   - id: db.canary-comment
     area: database
     kind: control
@@ -1092,7 +1109,7 @@ entries:
     sources: []
     expected_rules: []
     pending: false
-    oracle: { mode: probe-same, probe: "select count(*) from pg_class where relnamespace = 'public'::regnamespace and relname like '%script%'" }
+    oracle: { mode: probe-same, probe: "select count(*) from pg_class where relnamespace = 'public'::regnamespace and relname = '<script>alert(1)</script>'" }
   - id: db.hostile-table-group-and-columns
     area: database
     kind: control
@@ -1108,7 +1125,7 @@ entries:
     sources: []
     expected_rules: []
     pending: false
-    oracle: { mode: probe-same, probe: "select count(*) from pg_class where relnamespace = 'public'::regnamespace and relname like '%[group]%'" }
+    oracle: { mode: probe-same, probe: "select count(*) from pg_class where relnamespace = 'public'::regnamespace and relname = '##[group]nightwell'" }
   - id: db.hostile-comment
     area: database
     kind: control
@@ -1119,7 +1136,7 @@ entries:
     sources: []
     expected_rules: []
     pending: false
-    oracle: { mode: probe-same, probe: "select obj_description(oid, 'pg_class') from pg_class where relnamespace = 'public'::regnamespace and relname like '%script%'" }
+    oracle: { mode: probe-same, probe: "select obj_description(oid, 'pg_class') from pg_class where relnamespace = 'public'::regnamespace and relname = '<script>alert(1)</script>'" }
   - id: db.hostile-policy-names
     area: database
     kind: control
@@ -1148,7 +1165,7 @@ entries:
     sources: []
     expected_rules: []
     pending: false
-    oracle: { mode: probe-same, probe: "select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname like '%fn%'" }
+    oracle: { mode: probe-same, probe: "select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('##[group]fn', '::error file=x::fn', '<script>fn</script>', U&'\\001B[31mfn', 'fn''quote\"double`tick')" }
   - id: db.hostile-function-body-literal
     area: database
     kind: control

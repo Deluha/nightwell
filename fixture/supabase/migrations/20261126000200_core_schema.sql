@@ -15,7 +15,7 @@ end
 $$;
 
 -- planted: db.cellars-auth-uid-default (tie) — column default calls auth.uid() and created_by references auth.users
--- source: https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx (read 2026-11-26)
+-- source: unverified: auth.uid() appears in policies and in its definition there, not as a default or a check: https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql and https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx (read 2026-11-26)
 create table public.cellars (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -65,10 +65,10 @@ create table public.bottles (
   -- planted: db.bottles-quantity-check (control) — standard check constraint, no platform dependency
   quantity int not null default 0 check (quantity >= 0),
   -- planted: db.bottles-auth-uid-default (tie) — column default calls auth.uid()
-  -- source: https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx (read 2026-11-26)
+  -- source: unverified: auth.uid() appears in policies and in its definition there, not as a default or a check: https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql and https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx (read 2026-11-26)
   added_by uuid not null default auth.uid(),
   -- planted: db.bottles-auth-uid-check (tie) — check constraint calls auth.uid(); passes when no JWT is present (seed, service inserts)
-  -- source: https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx (read 2026-11-26)
+  -- source: unverified: auth.uid() appears in policies and in its definition there, not as a default or a check: https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql and https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx (read 2026-11-26)
   constraint bottles_added_by_self check (added_by is not null and (auth.uid() is null or added_by = auth.uid())),
   -- planted: db.bottles-generated-column (control) — generated column with an immutable expression
   vintage_decade int generated always as ((vintage / 10) * 10) stored

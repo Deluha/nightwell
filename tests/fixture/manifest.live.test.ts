@@ -2,8 +2,10 @@
 // Proves that every database object in fixture/manifest.yaml exists in the running fixture. The SQL goes
 // to psql on standard input and every identifier goes in as a psql variable (`:'name'`), never into the
 // SQL text, so a hostile name cannot change a query. Reads of the throwaway fixture's cron.job,
-// vault.secrets and storage.buckets are fine here; the hosted database is never touched.
+// vault.secrets and storage.buckets are fine here; the hosted database is never touched. A failed query
+// reports its SQLSTATE only: psql's own message can carry a hostile name.
 import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { beforeAll, describe, expect, test } from "vitest";
 import { isObjectKind, isRow, manifestEntries, OBJECT_KEYS, type ObjectKind, type Row } from "./manifest.ts";
 
@@ -95,24 +97,28 @@ const VARIABLES = {
   on_kind: "on",
 } as const satisfies Record<string, (typeof OBJECT_KEYS)[number]>;
 
+const TOKEN = randomBytes(8).toString("hex");
+
 function psql(sql: string, object: Row): Promise<string> {
   const variables = Object.entries(VARIABLES).flatMap(([variable, field]) => {
     const value = object[field];
     return ["-v", `${variable}=${typeof value === "string" ? value : ""}`];
   });
   const args = ["exec", "-i", CONTAINER, "psql", "-U", "postgres", "-d", "postgres", "-At"];
+  const script = `${sql}\n\\if :ERROR\n\\echo NW${TOKEN} err :LAST_ERROR_SQLSTATE\n\\endif\n`;
   return new Promise((resolve, reject) => {
-    const child = spawn("docker", [...args, "-v", "ON_ERROR_STOP=1", ...variables, "-f", "-"]);
+    const child = spawn("docker", [...args, ...variables, "-f", "-"]);
     let out = "";
-    let err = "";
     child.stdout.on("data", (chunk: Buffer) => (out += chunk.toString()));
-    child.stderr.on("data", (chunk: Buffer) => (err += chunk.toString()));
+    child.stderr.resume();
     child.on("error", reject);
     child.on("close", (code) => {
-      if (code === 0) resolve(out.trim());
-      else reject(new Error(`psql exited with ${String(code)}: ${err.slice(0, 300)}`));
+      const failed = new RegExp(`NW${TOKEN} err (\\S+)`).exec(out)?.[1];
+      if (code !== 0) reject(new Error(`psql exited with ${String(code)}`));
+      else if (failed !== undefined) reject(new Error(`the query failed with SQLSTATE ${failed}`));
+      else resolve(out.trim());
     });
-    child.stdin.end(sql);
+    child.stdin.end(script);
   });
 }
 

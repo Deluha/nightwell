@@ -93,7 +93,12 @@ create policy "shelves_select_member" on public.shelves
 
 -- planted: db.vector-column (tie) — vector column typed through the extensions schema
 -- source: XDIR/pgvector (embedding extensions.vector(n)) (read 2026-11-26)
-alter table public.bottles add column flavour_embedding extensions.vector(3);
+-- It sits in its own table so that bottles fails to load only on its auth references, and this table only
+-- on the extensions schema.
+create table public.bottle_embeddings (
+  bottle_id bigint primary key references public.bottles (id),
+  flavour_embedding extensions.vector(3)
+);
 
 -- planted: db.function-pgcrypto-mixed (tie) — pgcrypto's gen_random_bytes called through the extensions schema, next to a core function
 -- source: EXT (extensions schema) (read 2026-11-26)

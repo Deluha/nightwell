@@ -146,11 +146,14 @@ select cron.schedule(
 -- The local postgres role may set only allow-listed prefixes; app.* is refused (42501), pgrst.* is accepted.
 alter role authenticated set pgrst.cellar_partner_key = 'nwc_g11JH4_kk_4wrEW2ePlDnsD_EDipifiL';
 
--- planted: db.canary-user-mapping-option (tie) — canary in a foreign-server option (dictionary-word as the mapping password)
+-- planted: db.canary-user-mapping-option (tie) — canary in a user-mapping option (dictionary-word as the mapping password)
 -- source: XDIR (create user mapping ... options (user, password)) (read 2026-11-26)
 create user mapping for authenticated
   server cellar_archive
   options (user 'archive_reader', password 'cellardoor-canary-password');
+
+-- planted: db.canary-server-option (tie) — canary in a foreign-server option (dictionary-word as application_name)
+alter server cellar_archive options (add application_name 'cellardoor-canary-password');
 
 -- planted: db.canary-policy-literal (tie) — canary in a policy literal (platform-publishable-key) compared with a request header
 -- source: SECAPI#request-information (current_setting('request.headers', true)::json ->> '<header>') (read 2026-11-26)

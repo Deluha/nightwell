@@ -33,8 +33,14 @@ must not be one), location, public sources and, for database entries, the oracle
 holds it to the files; a live test holds it to the running database.
 
 The oracle dumps the non-managed schemas from the running fixture and loads them into stock PostgreSQL
-17, one statement at a time. Controls must load and behave the same; ties must fail or differ as
-declared. A mismatch means the manifest is wrong.
+17, one statement at a time, twice: as stock ships (`bare`), and with a plain stand-in for each role the
+dump names that stock lacks (`roles`). Controls must load and behave the same. A tie that fails to load
+declares `fails_on`, the platform schemas and roles its own failure must name; an entry that names a
+schema must also fail in the `roles` pass on a schema, so a missing role cannot stand in for a missing
+schema. A tie that loads must give a different probe outcome, rows or SQLSTATE. A failure that only
+follows an earlier failed object is a cascade: listed and committed, not counted as proof. Grants to platform
+roles that no entry lists (most come from the platform's default privileges) are listed apart as
+platform ACL and never prove anything. A mismatch means the manifest is wrong.
 
 ## Canaries
 

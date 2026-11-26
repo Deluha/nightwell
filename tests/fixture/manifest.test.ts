@@ -4,13 +4,16 @@ import { describe, expect, test } from "vitest";
 import { FEATURE_AREAS } from "../../src/model/areas.ts";
 import {
   isObjectKind,
+  isOracleMode,
   isRow,
   loadManifest,
   manifestEntries,
   OBJECT_FIELDS,
   OBJECT_KEYS,
+  ORACLE_KEYS,
   type Row,
 } from "./manifest.ts";
+import { identifiersIn } from "./oracle.ts";
 
 const ENTRY_KEYS = [
   "id",
@@ -25,10 +28,24 @@ const ENTRY_KEYS = [
   "oracle",
   "postgres_major",
 ];
-const ORACLE_MODES = ["load-fails", "not-in-dump", "probe-same", "probe-differs"];
-const HOSTS = ["supabase.com", "postgresql.org", "www.postgresql.org"];
-
 const nonEmpty = (value: unknown): value is string => typeof value === "string" && value !== "";
+
+// The accepted source hosts: supabase.com and postgresql.org only under /docs, and github.com/supabase
+// only at a pinned commit (/blob/<40 hex>/ or /tree/<40 hex>/).
+function acceptedSource(url: URL): boolean {
+  if (url.protocol !== "https:") return false;
+  const parts = url.pathname.split("/");
+  switch (url.hostname) {
+    case "supabase.com":
+    case "postgresql.org":
+    case "www.postgresql.org":
+      return parts[1] === "docs";
+    case "github.com":
+      return parts[1] === "supabase" && ["blob", "tree"].includes(parts[3] ?? "") && /^[0-9a-f]{40}$/.test(parts[4] ?? "");
+    default:
+      return false;
+  }
+}
 
 function sourceProblems(source: unknown): string[] {
   if (!isRow(source)) return ["a source is not a mapping"];
@@ -39,12 +56,7 @@ function sourceProblems(source: unknown): string[] {
   } catch {
     problems.push("a source url does not parse");
   }
-  if (url !== undefined) {
-    const github = url.hostname === "github.com" && url.pathname.startsWith("/supabase/");
-    if (url.protocol !== "https:" || !(github || HOSTS.includes(url.hostname))) {
-      problems.push("a source is not on an accepted host");
-    }
-  }
+  if (url !== undefined && !acceptedSource(url)) problems.push("a source is not on an accepted host and path");
   const read = source["read"];
   if (typeof read !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(read) || Number.isNaN(Date.parse(read))) {
     problems.push("a source read date is not YYYY-MM-DD");
@@ -72,12 +84,40 @@ function databaseProblems(entry: Row, location: Row): string[] {
     }
   }
   const oracle = entry["oracle"];
-  if (!isRow(oracle) || !ORACLE_MODES.includes(String(oracle["mode"]))) {
+  if (!isRow(oracle) || !isOracleMode(oracle["mode"])) {
     problems.push("a database entry needs an oracle with a valid mode");
   } else {
-    const probed = String(oracle["mode"]).startsWith("probe-");
-    if (probed !== nonEmpty(oracle["probe"])) problems.push("a probe belongs to probe-* modes only");
+    problems.push(...oracleProblems(oracle, oracle["mode"], (objects as unknown[]).filter(isRow)));
   }
+  return problems;
+}
+
+// The names that identify a location object in a probe: its own name, or its table.
+const identifyingNames = (objects: Row[]): string[] =>
+  objects.flatMap((object) => [object["name"], object["table"]].filter(nonEmpty));
+
+function oracleProblems(oracle: Row, mode: string, objects: Row[]): string[] {
+  const problems: string[] = [];
+  for (const key of Object.keys(oracle)) {
+    if (!(ORACLE_KEYS as readonly string[]).includes(key)) problems.push(`oracle: unknown field ${key}`);
+  }
+  const probed = mode.startsWith("probe-");
+  if (probed !== nonEmpty(oracle["probe"])) problems.push("a probe belongs to probe-* modes only");
+  if (probed && nonEmpty(oracle["probe"])) {
+    const probe = oracle["probe"];
+    const named = identifiersIn(probe);
+    const names = (name: string) =>
+      named.has(name) || probe.includes(`'${name.replaceAll("'", "''")}'`) || probe.includes(`"${name.replaceAll('"', '""')}"`);
+    if (!identifyingNames(objects).some(names)) {
+      problems.push("the probe names none of the entry's own objects");
+    }
+  }
+  const failsOn = oracle["fails_on"];
+  if (mode === "load-fails") {
+    if (!Array.isArray(failsOn) || failsOn.length === 0 || !failsOn.every(nonEmpty) || new Set(failsOn).size !== failsOn.length) {
+      problems.push("a load-fails entry needs fails_on: a list of distinct platform schema and role names");
+    }
+  } else if ("fails_on" in oracle) problems.push("fails_on belongs to load-fails only");
   return problems;
 }
 
@@ -157,6 +197,45 @@ describe("fixture/manifest.yaml", () => {
   test("gives every entry a unique id", () => {
     const ids = entries.map((entry) => entry["id"]);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  test("accepts sources only on the accepted hosts and paths", () => {
+    const sha = "0123456789abcdef0123456789abcdef01234567";
+    const accepted = [
+      `https://github.com/supabase/supabase/blob/${sha}/apps/docs/a.mdx`,
+      `https://github.com/supabase/auth/tree/${sha}/migrations`,
+      "https://supabase.com/docs/guides/auth",
+      "https://www.postgresql.org/docs/17/postgres-fdw.html",
+      "https://postgresql.org/docs/current/sql-grant.html",
+    ];
+    const refused = [
+      "https://supabase.com/blog/post",
+      "https://supabase.com/",
+      "https://github.com/supabase/supabase/blob/main/README.md",
+      `https://github.com/supabase/supabase/blob/${sha.slice(1)}/a.md`,
+      `https://github.com/supabase/supabase/raw/${sha}/a.md`,
+      `https://github.com/other/repo/blob/${sha}/a.md`,
+      "https://www.postgresql.org/about/news",
+      "https://postgresql.org/",
+      "https://docs.supabase.com/docs/x",
+      `http://github.com/supabase/supabase/blob/${sha}/a.md`,
+    ];
+    expect(accepted.filter((url) => !acceptedSource(new URL(url)))).toEqual([]);
+    expect(refused.filter((url) => acceptedSource(new URL(url)))).toEqual([]);
+  });
+
+  test("flags a probe that names none of its entry's objects, and a misplaced or missing fails_on", () => {
+    const objects = [{ object: "function", schema: "public", name: "add_bottle", args: "" }];
+    expect(oracleProblems({ mode: "probe-differs", probe: "select public.add_bottle(1)" }, "probe-differs", objects)).toEqual([]);
+    expect(oracleProblems({ mode: "probe-differs", probe: "select to_regprocedure('auth.uid()')" }, "probe-differs", objects)).toEqual([
+      "the probe names none of the entry's own objects",
+    ]);
+    expect(oracleProblems({ mode: "probe-same", probe: "select add_bottle_x(1)" }, "probe-same", objects)).toHaveLength(1);
+    expect(oracleProblems({ mode: "load-fails", fails_on: ["auth"] }, "load-fails", objects)).toEqual([]);
+    expect(oracleProblems({ mode: "load-fails" }, "load-fails", objects)).toHaveLength(1);
+    expect(oracleProblems({ mode: "load-fails", fails_on: [] }, "load-fails", objects)).toHaveLength(1);
+    expect(oracleProblems({ mode: "load-fails", fails_on: ["auth", "auth"] }, "load-fails", objects)).toHaveLength(1);
+    expect(oracleProblems({ mode: "not-in-dump", fails_on: ["auth"] }, "not-in-dump", objects)).toHaveLength(1);
   });
 
   test("holds each entry to the manifest format", () => {

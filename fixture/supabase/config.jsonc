@@ -459,6 +459,15 @@
     }
   },
 
+  // Per-function settings, keyed by function slug (supabase/cli packages/config/src/functions.ts at v3.4.0).
+  // The webhook receiver runs with JWT verification off.
+  "functions": {
+    "restock": { "enabled": true, "verify_jwt": true },
+    "new-bottle-hook": { "enabled": true, "verify_jwt": false },
+    "label-thumbnail": { "enabled": true, "verify_jwt": true },
+    "tasting-digest": { "enabled": true, "verify_jwt": true },
+  },
+
   "edge_runtime": {
     "enabled": true,
     // Supported request policies: `oneshot`, `per_worker`.

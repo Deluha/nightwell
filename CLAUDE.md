@@ -36,19 +36,19 @@ lives in the development skill: start at `.claude/skills/nightwell-development/S
 
 The full wording is in `.claude/skills/nightwell-development/references/conventions.md#hard-rules`.
 
-| # | Rule |
-|---|---|
-| R1 | Read-only: only the fixed statement set is ever sent to a scanned database. |
-| R2 | Detection is data: no Supabase identifier in `src/`; rules live in the rule pack. |
-| R3 | Public sources only: every rule cites an accepted source, with the date read. |
-| R4 | The fixture proves every rule; no code or data from another project. |
-| R5 | Neutral and bounded: no destination recommended; no replacement services shipped. |
-| R6 | One definition of each enumeration and shape; every file format is versioned. |
-| R7 | Docs move with the code, in the same pull request. |
-| R8 | No files nobody asked for: tests only in `tests/`; no stray Markdown. |
-| R9 | Secrets never leave: nothing sensitive is printed, logged or stored; redaction is default-deny. |
-| R10 | Everything read is hostile: encode every output, cap and fuzz every parser. |
-| R11 | Factual and fair: a tie is a dependency, not a defect; rule text states facts only. |
+| #   | Rule                                                                                            |
+| --- | ----------------------------------------------------------------------------------------------- |
+| R1  | Read-only: only the fixed statement set is ever sent to a scanned database.                     |
+| R2  | Detection is data: no Supabase identifier in `src/`; rules live in the rule pack.               |
+| R3  | Public sources only: every rule cites an accepted source, with the date read.                   |
+| R4  | The fixture proves every rule; no code or data from another project.                            |
+| R5  | Neutral and bounded: no destination recommended; no replacement services shipped.               |
+| R6  | One definition of each enumeration and shape; every file format is versioned.                   |
+| R7  | Docs move with the code, in the same pull request.                                              |
+| R8  | No files nobody asked for: tests only in `tests/`; no stray Markdown.                           |
+| R9  | Secrets never leave: nothing sensitive is printed, logged or stored; redaction is default-deny. |
+| R10 | Everything read is hostile: encode every output, cap and fuzz every parser.                     |
+| R11 | Factual and fair: a tie is a dependency, not a defect; rule text states facts only.             |
 
 ## Ask first
 

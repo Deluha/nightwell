@@ -10,25 +10,25 @@ is all-pass; read the whole table. What each checker parses is in `checkers.md`.
 
 `scripts/dev/install-tools.sh` installs the tools and points git at `.githooks/`.
 
-| Hook | Runs |
-|---|---|
+| Hook         | Runs                                                                 |
+| ------------ | -------------------------------------------------------------------- |
 | `pre-commit` | Secret scan of staged changes, conventions, lint, guidance integrity |
-| `commit-msg` | Secret scan of the message, docs sync |
-| `pre-push` | The offline suite |
+| `commit-msg` | Secret scan of the message, docs sync                                |
+| `pre-push`   | The offline suite                                                    |
 
 Never skip a hook. A hook that fails wrongly is fixed through the changing-guidance workflow.
 
 ## Workflows
 
-| Workflow | Does |
-|---|---|
-| `ci` | Calls the four below and ends in the one required check, `CI gate` |
-| `ci-pre-commit` | Every hook on the whole tree; the secret scan over the pull request's commits, messages, text and the tree; the workflow linter |
-| `ci-docs-sync` | Docs sync against the pull-request base |
-| `ci-tests` | Type-check and the offline suite with coverage, on three operating systems and every supported Node line |
-| `ci-package` | Packs the tarball, installs it into an empty directory with scripts off, runs the binary, lints the export map and types |
-| `path-guard` | Fails an outside pull request that touches protected paths until a maintainer labels it |
-| `codeql`, `dependency-review`, `scorecard` | Static analysis of code and workflows; dependency and licence review; supply-chain posture |
+| Workflow                                   | Does                                                                                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ci`                                       | Calls the four below and ends in the one required check, `CI gate`                                                              |
+| `ci-pre-commit`                            | Every hook on the whole tree; the secret scan over the pull request's commits, messages, text and the tree; the workflow linter |
+| `ci-docs-sync`                             | Docs sync against the pull-request base                                                                                         |
+| `ci-tests`                                 | Type-check and the offline suite with coverage, on three operating systems and every supported Node line                        |
+| `ci-package`                               | Packs the tarball, installs it into an empty directory with scripts off, runs the binary, lints the export map and types        |
+| `path-guard`                               | Fails an outside pull request that touches protected paths until a maintainer labels it                                         |
+| `codeql`, `dependency-review`, `scorecard` | Static analysis of code and workflows; dependency and licence review; supply-chain posture                                      |
 
 Every workflow starts from read-only permissions; third-party actions are pinned to a commit hash;
 checkouts do not persist credentials; installs use the lockfile with install scripts off.

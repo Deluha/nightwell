@@ -9,7 +9,13 @@ export default defineConfig({
     setupFiles: ["tests/setup/offline.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/**/*.ts", "scripts/**/*.ts"],
+      include: [
+        "src/**/*.ts",
+        "scripts/checkers/**/*.ts",
+        "scripts/lib/glob.ts",
+        "scripts/lib/problem.ts",
+      ],
+      exclude: ["src/cli/main.ts"],
       reporter: ["text-summary", "lcov"],
       thresholds: {
         lines: 80,

@@ -6,11 +6,11 @@ here is to be implemented.
 
 ## Severity
 
-| Severity | Meaning |
-|---|---|
-| `portable` | Moves to plain PostgreSQL unchanged |
-| needs a replacement | Works once a like-for-like substitute or shim exists |
-| needs a redesign | Depends on a platform service with no drop-in equivalent |
+| Severity            | Meaning                                                  |
+| ------------------- | -------------------------------------------------------- |
+| `portable`          | Moves to plain PostgreSQL unchanged                      |
+| needs a replacement | Works once a like-for-like substitute or shim exists     |
+| needs a redesign    | Depends on a platform service with no drop-in equivalent |
 
 Stock PostgreSQL of the fixture's major version is the yardstick for `portable`, not a recommended
 destination. Every rule's severity is the owner's call.

@@ -1,0 +1,18 @@
+[
+  {
+    "area": ["scripts/checkers/**", "scripts/data/**", "scripts/check-*.ts", "scripts/verify.ts"],
+    "doc": ".claude/skills/nightwell-development/references/checkers.md"
+  },
+  {
+    "area": [".githooks/**", ".github/workflows/**", ".gitleaks.toml"],
+    "doc": ".claude/skills/nightwell-development/references/qa-and-ci.md"
+  },
+  {
+    "area": [".claude/agents/**"],
+    "doc": ".claude/skills/nightwell-development/references/architecture.md"
+  },
+  {
+    "area": ["tests/setup/**"],
+    "doc": "tests/README.md"
+  }
+]

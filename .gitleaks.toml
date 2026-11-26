@@ -48,4 +48,10 @@ regex = '''postgres(?:ql)?://[^\s:@/]+:[^\s@/]+@'''
 description = "Canary credentials of the fixture"
 regexes = [
   '''^sb_secret_NIGHTWELLCANARY0000000001$''',
+  '''^sb_publishable_NIGHTWELLCANARY0000000002$''',
+  '''^eyJhbGciOiJub25lIiwidHlwIjoiTklHSFRXRUxMLUNBTkFSWSJ9\.eyJyb2xlIjoibmlnaHR3ZWxsLWNhbmFyeSIsInJlZiI6Im5vdC1hLXByb2plY3QifQ\.bm90LWEtc2lnbmF0dXJl$''',
+  '''^nwc_g11JH4_kk_4wrEW2ePlDnsD_EDipifiL$''',
+  '''^cellardoor-canary-password$''',
+  '''^canary\.nightwell@example\.com$''',
+  '''^postgresql://cellarbook:nwc_g11JH4_kk_4wrEW2ePlDnsD_EDipifiL@$''',
 ]

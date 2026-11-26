@@ -25,7 +25,7 @@ describe("fixture/versions.env", () => {
 describe("fixture/canaries.json", () => {
   const file = JSON.parse(read("fixture/canaries.json")) as {
     canaries_version: number;
-    canaries: { id: string; value: string }[];
+    canaries: { id: string; value: string; scanner_match?: string }[];
   };
 
   test("is versioned and gives each canary a unique id", () => {
@@ -40,7 +40,8 @@ describe("fixture/canaries.json", () => {
     expect(block).not.toBeNull();
     const listed = [...(block?.[1] ?? "").matchAll(/'''(.*?)'''/g)].map((match) => match[1]);
     const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const expected = file.canaries.map((canary) => `^${escape(canary.value)}$`);
+    // The scanner allow-lists what its rule matched, which for a connection string is only the part up to the host.
+    const expected = file.canaries.map((canary) => `^${escape(canary.scanner_match ?? canary.value)}$`);
     expect([...listed].sort()).toEqual([...expected].sort());
   });
 });

@@ -24,10 +24,29 @@ interface Node {
 const CLI_DIR = "src/cli/";
 const THIN_ENTRY_GLOBS = ["src/cli/main.ts", "src/cli/commands/*.ts"];
 const THIN_ENTRY_MAX_LINES = 40;
-const CLI_ONLY_GLOBALS = new Set(["console", "process"]);
+/** Names that may not be referenced or bound outside src/cli/: the two globals and the global object. */
+const RESERVED_OUTSIDE_CLI = new Set(["console", "process", "globalThis", "global"]);
 const CLI_ONLY_MODULES = new Set(["process", "node:process", "console", "node:console"]);
-const GLOBAL_OBJECTS = new Set(["globalThis", "global"]);
 const MEMBER_TYPES = new Set(["MemberExpression", "OptionalMemberExpression"]);
+/** Type-only wrappers around an expression, which do not change what it names. */
+const WRAPPER_TYPES = new Set([
+  "TSNonNullExpression",
+  "TSAsExpression",
+  "TSSatisfiesExpression",
+  "ParenthesizedExpression",
+]);
+const MODULE_SOURCE_TYPES = new Set([
+  "ImportDeclaration",
+  "ImportExpression",
+  "ExportAllDeclaration",
+  "ExportNamedDeclaration",
+]);
+/** Positions where an identifier names something else than a binding or a reference to it. */
+const NAME_ONLY_KEYS: Readonly<Record<string, readonly string[]>> = {
+  ImportSpecifier: ["imported"],
+  ExportSpecifier: ["exported"],
+  TSEnumMember: ["id"],
+};
 
 function isNode(value: unknown): value is Node {
   return typeof value === "object" && value !== null && typeof (value as Node).type === "string";
@@ -56,6 +75,7 @@ function memberProperty(node: Node): string | undefined {
 
 /** Renders `a.b.c` for a member chain of plain identifiers, else undefined. */
 function qualifiedName(node: Node): string | undefined {
+  if (WRAPPER_TYPES.has(node.type)) return qualifiedName(node["expression"] as Node);
   if (node.type === "Identifier") return node["name"] as string;
   if (node.type === "TSQualifiedName") {
     const left = qualifiedName(node["left"] as Node);
@@ -120,13 +140,17 @@ export function checkSource(files: readonly SourceFile[], forbidden: ForbiddenLi
         if (name.toLowerCase().includes(platform)) {
           add("R2", node, `identifier '${name}' contains the platform's name`);
         }
-        // A reference, not a property name such as `x.process` or `{ process: 1 }`.
-        const isPropertyName =
-          parent !== undefined &&
-          parent["computed"] !== true &&
-          ((key === "property" && MEMBER_TYPES.has(parent.type)) || key === "key");
-        if (!inCli && CLI_ONLY_GLOBALS.has(name) && !isPropertyName) {
-          add("cli-boundary", node, `${name} is used outside src/cli/`);
+        // A reference or a binding, not a name in a position that cannot be the global:
+        // `x.process`, `{ process: 1 }`, `#process`, `import { process as run }`.
+        const isNameOnly =
+          node.type === "PrivateName" ||
+          (parent !== undefined &&
+            ((parent["computed"] !== true &&
+              ((key === "property" && MEMBER_TYPES.has(parent.type)) || key === "key")) ||
+              (NAME_ONLY_KEYS[parent.type]?.includes(key) ?? false) ||
+              parent.type === "PrivateName"));
+        if (!inCli && RESERVED_OUTSIDE_CLI.has(name) && !isNameOnly) {
+          add("cli-boundary", node, `${name} is reserved for src/cli/`);
         }
       }
       if (MEMBER_TYPES.has(node.type) || node.type === "TSQualifiedName") {
@@ -135,20 +159,9 @@ export function checkSource(files: readonly SourceFile[], forbidden: ForbiddenLi
           add("R2", node, `qualified name '${name}' belongs in the rule pack`);
         }
       }
-      if (MEMBER_TYPES.has(node.type) && !inCli) {
-        const object = node["object"] as Node;
-        const property = memberProperty(node) ?? "";
-        if (
-          object.type === "Identifier" &&
-          GLOBAL_OBJECTS.has(object["name"] as string) &&
-          CLI_ONLY_GLOBALS.has(property)
-        ) {
-          add("cli-boundary", node, `${property} is used outside src/cli/`);
-        }
-      }
-      if (node.type === "ImportDeclaration" || node.type === "ImportExpression") {
-        const source = literalValue(node["source"] as Node);
-        if (!inCli && source !== undefined && CLI_ONLY_MODULES.has(source)) {
+      if (MODULE_SOURCE_TYPES.has(node.type) && !inCli && isNode(node["source"])) {
+        const source = literalValue(node["source"]);
+        if (source !== undefined && CLI_ONLY_MODULES.has(source)) {
           add("cli-boundary", node, `'${source}' is imported outside src/cli/`);
         }
       }

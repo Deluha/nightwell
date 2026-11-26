@@ -25,7 +25,7 @@ Never skip a hook. A hook that fails wrongly is fixed through the changing-guida
 - **Allow:** the verify command and its parts, and read-only git commands.
 - **Ask:** edits to guidance, CI, hooks, scripts and the package manifest; `psql`, `pg_dump` and package
   installs.
-- **Deny:** reading environment files; any command naming the platform's management interface; CLI
+- **Deny** (this also blocks reading the hooks path with `git config`): reading environment files; any command naming the platform's management interface; CLI
   commands that log in, link to or act on a hosted project; skipping hooks; force-pushes.
 - `.claude/hooks/session-start.sh` installs the development tools at the start of a cloud session.
 - `.claude/hooks/post-edit-lint.js` lints and format-checks the file an edit touched and feeds
@@ -41,6 +41,7 @@ Never skip a hook. A hook that fails wrongly is fixed through the changing-guida
 | `ci-tests`                                 | Type-check and the offline suite with coverage, on three operating systems and every supported Node line                                                                                           |
 | `ci-package`                               | Packs the tarball, installs it into an empty directory with scripts off, runs the binary, lints the export map and types                                                                           |
 | `path-guard`                               | The second required check, `Path guard`: fails an outside pull request that touches protected paths until a maintainer labels it. It runs from the base branch, so a pull request cannot change it |
+| `pr-text-scan`                             | The secret scan of a pull request's title and description when they are edited                                                                                                                     |
 | `codeql`, `dependency-review`, `scorecard` | Static analysis of code and workflows; dependency and licence review; supply-chain posture                                                                                                         |
 
 Every workflow starts from read-only permissions; third-party actions are pinned to a commit hash;

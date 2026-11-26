@@ -59,20 +59,32 @@ describe("checkSource", () => {
     "const p = await import('process');",
     "process?.exit(1);",
     "process.versions.node;",
+    "export * from 'node:process';",
+    "export { env } from 'node:process';",
+    "const { console: c } = globalThis; c.log(1);",
+    "const g = globalThis; g.process.exit(1);",
+    "(globalThis as any).process.exit(1);",
+    "function process(item: number) { return item; }",
   ])("catches an indirect use outside src/cli/: %s", (code) => {
     expect(rules("src/engine/a.ts", code)).toContain("cli-boundary");
   });
 
-  test("does not mistake a property name for the global", () => {
-    expect(
-      rules("src/engine/a.ts", "const o = { process: 1, console: 2 }; o.process; o.console;"),
-    ).toEqual([]);
+  test.each([
+    "const o = { process: 1, console: 2 }; o.process; o.console;",
+    "class A { #process = 1; process() { return this.#process; } }",
+    "import { process as run } from './x.ts'; run();",
+    "export { run as process } from './x.ts';",
+    "enum E { process }",
+    "export { a } from './x.ts'; export const b = 1;",
+  ])("does not mistake a name-only position for the global: %s", (code) => {
+    expect(rules("src/engine/a.ts", code)).toEqual([]);
   });
 
   test("flags qualified names through optional chaining, computed access and types", () => {
     expect(rules("src/a.ts", "x(auth?.uid);")).toEqual(["R2"]);
     expect(rules("src/a.ts", "x(auth['uid']);")).toEqual(["R2"]);
     expect(rules("src/a.ts", "type A = auth.uid;")).toEqual(["R2"]);
+    expect(rules("src/a.ts", "x(auth!.uid); x((auth as any).uid);")).toEqual(["R2", "R2"]);
   });
 
   test("reports a file that cannot be parsed and a fat entry file", () => {

@@ -74,7 +74,13 @@ export function pathReferences(markdown: string): Reference[] {
   stripFences(markdown).forEach((line, index) => {
     for (const match of line.matchAll(/`([^`\n]+)`/g)) {
       const [target = "", anchor] = (match[1] ?? "").split("#", 2);
-      if (target === "" && anchor !== undefined && /^[\p{L}\p{N}_-]+$/u.test(anchor)) {
+      // A bare anchor; all-digit tokens are issue numbers, not headings.
+      if (
+        target === "" &&
+        anchor !== undefined &&
+        /^[\p{Ll}\p{N}_-]+$/u.test(anchor) &&
+        !/^\d+$/.test(anchor)
+      ) {
         references.push({ path: "", anchor, line: index + 1 });
         continue;
       }

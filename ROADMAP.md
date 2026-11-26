@@ -448,7 +448,8 @@ are accepted and reported as untested.
   before Phase 0's first commit; reserve the npm package name by hand and revoke every token afterwards
   (`nightwell` was unclaimed on 2026-11-25).
 - Repository: require `CI gate`, `Path guard` (added in Phase 0: it runs from the base branch, so a pull
-  request cannot change it) and a pull request on the default branch with no bypass; forbid
+  request cannot change it; keep the merge queue off, or the check never reports for a queued merge) and a
+  pull request on the default branch with no bypass; forbid
   force-pushes; protect release tags; workflow runs from outside contributors need approval; default
   workflow token read-only; workflows may not create or approve pull requests; turn on private
   vulnerability reporting, secret-scanning push protection and dependency alerts.

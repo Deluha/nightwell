@@ -29,7 +29,15 @@ const SETTINGS = new Set([
   "transaction_read_only",
   "default_transaction_read_only",
 ]);
-const FORBIDDEN_NODES = new Set(["InsertStmt", "UpdateStmt", "DeleteStmt", "MergeStmt"]);
+const TYPES = new Set(["text", "int4", "bool"]);
+const VALUE_FUNCTIONS = new Set(["SVFOP_CURRENT_USER"]);
+const FORBIDDEN_NODES = new Set([
+  "InsertStmt",
+  "UpdateStmt",
+  "DeleteStmt",
+  "MergeStmt",
+  "RangeTableSample",
+]);
 const FORBIDDEN_KEYS = new Set(["intoClause", "lockingClause"]);
 
 type Tree = Record<string, unknown>;
@@ -62,7 +70,24 @@ export function checkHostedQuery(file: string, parsed: unknown): Problem[] {
     }
     if (!isTree(node)) return;
     for (const [key, value] of Object.entries(node)) {
-      if (FORBIDDEN_NODES.has(key)) add(`contains a data-modifying statement (${key})`);
+      if (FORBIDDEN_NODES.has(key)) add(`contains a forbidden construct (${key})`);
+      // Operators, types and value functions run code too: only built-in ones pass.
+      if ((key === "A_Expr" && isTree(value)) || (key === "SortBy" && isTree(value))) {
+        const operator = names(key === "A_Expr" ? value["name"] : value["useOp"]);
+        if (operator.length > 1 && !(operator.length === 2 && operator[0] === "pg_catalog")) {
+          add(`uses operator '${operator.join(".")}', which is not a built-in operator`);
+        }
+      }
+      if ((key === "TypeName" || key === "typeName") && isTree(value)) {
+        const type = names(value["names"]);
+        const builtIn = type.length === 1 || (type.length === 2 && type[0] === "pg_catalog");
+        if (!builtIn || !TYPES.has(type.at(-1) ?? "")) {
+          add(`uses type '${type.join(".")}', which is not on the type list`);
+        }
+      }
+      if (key === "SQLValueFunction" && isTree(value) && !VALUE_FUNCTIONS.has(text(value["op"]))) {
+        add(`uses ${text(value["op"])}, which is not on the value-function list`);
+      }
       if (FORBIDDEN_KEYS.has(key)) {
         add(`contains ${key === "intoClause" ? "INTO" : "a locking clause"}`);
       }

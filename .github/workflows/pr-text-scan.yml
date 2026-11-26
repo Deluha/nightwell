@@ -1,0 +1,38 @@
+# Secret scan of a pull request's title and description when they are edited.
+# The CI workflow scans them when commits arrive; this covers a later edit
+# without restarting the whole test matrix.
+name: pr-text-scan
+
+on:
+  pull_request:
+    types: [edited]
+
+permissions: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: "1.24"
+          cache: false
+      - name: Install the locked tools
+        run: bash scripts/dev/install-tools.sh
+      - name: Secret scan of the pull request's text
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          text="$(mktemp -d)"
+          printf '%s\n\n%s\n' "$PR_TITLE" "$PR_BODY" > "$text/pull-request.txt"
+          bash scripts/dev/secret-scan.sh text "$text"

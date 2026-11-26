@@ -7,8 +7,10 @@ export interface PathGuardInput {
   association: string;
   /** The event action that started the run, e.g. `opened`, `synchronize`, `labeled`. */
   action: string;
-  /** The changed files the code host listed. */
+  /** The changed files the code host listed, one entry per file. */
   files: readonly string[];
+  /** Earlier names of renamed files; guarded like the files, never counted. */
+  previousFiles: readonly string[];
   /** How many files the pull request changes, as the event reports it. */
   changedCount: number;
   labels: readonly string[];
@@ -18,6 +20,8 @@ export interface PathGuardInput {
 }
 
 const MAINTAINERS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
+/** Events after which the pull request may hold commits no maintainer has read. */
+export const RESETS_REVIEW = new Set(["synchronize", "reopened"]);
 /** The code host lists at most this many files of a pull request. */
 export const LISTING_LIMIT = 3000;
 
@@ -25,12 +29,12 @@ export function checkPathGuard(input: PathGuardInput): Problem[] {
   if (MAINTAINERS.has(input.association)) return [];
   const labelled = input.labels.includes(input.label);
 
-  // A new push must be read again: the label has to be gone by now.
-  if (input.action === "synchronize" && labelled) {
+  // A new or reopened revision must be read again: the label has to be gone by now.
+  if (RESETS_REVIEW.has(input.action) && labelled) {
     return [
       {
         rule: "path-guard",
-        message: `'${input.label}' is still set after a new push; remove it, read the new revision, and apply it again`,
+        message: `'${input.label}' is still set after a new push or a reopen; remove it, read the new revision, and apply it again`,
       },
     ];
   }
@@ -45,7 +49,7 @@ export function checkPathGuard(input: PathGuardInput): Problem[] {
       },
     ];
   }
-  return input.files
+  return [...input.files, ...input.previousFiles]
     .filter((file) => input.protectedPaths.some((path) => matchesGlob(file, path)))
     .map((file) => ({
       rule: "path-guard",

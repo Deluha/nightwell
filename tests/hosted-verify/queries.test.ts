@@ -66,12 +66,50 @@ describe("the checker", () => {
     expect(check(sql).join()).toMatch(/not on the function list/);
   });
 
+  test.each([
+    ["a user-defined operator", "select 1 operator(public.+) 2", /not a built-in operator/],
+    [
+      "a user-defined sort operator",
+      "select 1 from pg_catalog.pg_class order by oid using operator(public.<)",
+      /not a built-in operator/,
+    ],
+    ["a user-defined type", "select 'x'::public.evil", /not on the type list/],
+    ["a cast to a name-resolving type", "select 'auth.users'::regclass", /not on the type list/],
+    [
+      "a sampling method",
+      "select 1 from pg_catalog.pg_class tablesample public.evil (10)",
+      /forbidden construct/,
+    ],
+    ["another value function", "select session_user", /not on the value-function list/],
+  ])("rejects code that runs through another node kind: %s", (_name, sql, expected) => {
+    expect(check(sql).join()).toMatch(expected);
+  });
+
+  test("accepts the built-in forms the queries use", () => {
+    expect(check("select current_user, count(*)::text || 'x' from pg_catalog.pg_roles")).toEqual(
+      [],
+    );
+  });
+
+  test("the two role queries name the same fixed list of platform roles", () => {
+    const list = (file: string) =>
+      [
+        ...readFileSync(`${DIR}/${file}`, "utf8").matchAll(
+          /'((?:supabase_|anon|auth|service|postgres|dashboard|pgbouncer)\w*)'/g,
+        ),
+      ]
+        .map((match) => match[1])
+        .sort();
+    expect(list("u8-connecting-role.sql")).toEqual(list("u8-platform-roles.sql"));
+    expect(list("u8-platform-roles.sql").length).toBeGreaterThan(10);
+  });
+
   test("rejects writes, INTO, locking clauses and other settings", () => {
     expect(
       check(
         "with w as (insert into pg_catalog.pg_class default values returning 1) select 1",
       ).join(),
-    ).toMatch(/data-modifying/);
+    ).toMatch(/forbidden construct/);
     expect(check("select 1 into t from pg_catalog.pg_class").join()).toMatch(/INTO/);
     expect(check("select 1 from pg_catalog.pg_class for update").join()).toMatch(/locking clause/);
     expect(check("select current_setting('pgrst.db_schemas')")).toEqual([

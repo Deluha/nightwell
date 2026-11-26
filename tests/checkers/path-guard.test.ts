@@ -5,6 +5,7 @@ const base = {
   association: "CONTRIBUTOR",
   action: "opened",
   files: ["src/a.ts", ".github/workflows/ci.yml", "scripts/verify.ts", "CLAUDE.md"],
+  previousFiles: [] as string[],
   changedCount: 4,
   labels: [] as string[],
   protectedPaths: [".github/", "scripts/", "CLAUDE.md"],
@@ -38,6 +39,20 @@ test("a label that survives a new push fails instead of approving the unread rev
   expect(
     checkPathGuard({ ...base, action: "synchronize", files: ["src/a.ts"], changedCount: 1 }),
   ).toEqual([]);
+});
+
+test("a reopened pull request is treated like a new push", () => {
+  expect(checkPathGuard({ ...base, action: "reopened", labels: reviewed })).toHaveLength(1);
+});
+
+test("a rename out of a protected path is guarded but does not pad the listing", () => {
+  const renamed = { ...base, files: ["src/moved.ts"], previousFiles: ["scripts/verify.ts"] };
+  expect(checkPathGuard({ ...renamed, changedCount: 1 }).map((problem) => problem.file)).toEqual([
+    "scripts/verify.ts",
+  ]);
+  expect(checkPathGuard({ ...renamed, changedCount: 2 })[0]?.message).toContain(
+    "may be incomplete",
+  );
 });
 
 test("an incomplete file listing fails closed", () => {

@@ -1,0 +1,16 @@
+{
+  "fixture/": "Phase 1",
+  "src/model/": "Phase 2",
+  "src/collect/": "Phase 2",
+  "src/engine/": "Phase 2",
+  "src/report/": "Phase 2",
+  "packs/": "Phase 2",
+  "queries/": "Phase 2",
+  "schema/": "Phase 2",
+  "tests/snapshots/": "Phase 2",
+  "data/": "Phase 3",
+  "src/codescan/": "Phase 4",
+  "src/score/": "Phase 5",
+  "src/shims/": "Phase 6",
+  "src/plan/": "Phase 7"
+}

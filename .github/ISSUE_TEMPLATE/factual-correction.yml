@@ -1,0 +1,29 @@
+name: Factual correction
+description: A rule or a document states something about Supabase or PostgreSQL that is wrong
+labels: ["factual"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never attach a catalog snapshot or a report from a real project, and never paste a connection string or a key: issues are public.
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The rule id or the document and section
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: What is wrong and what is right
+      description: State the correction as a fact.
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Public source
+      description: A link to public documentation or an open source repository that shows it
+    validations:
+      required: true

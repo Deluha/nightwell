@@ -1,0 +1,7 @@
+dist/
+coverage/
+node_modules/
+.tools/
+package-lock.json
+ROADMAP.md
+LICENSE

@@ -1,0 +1,58 @@
+{
+  "name": "nightwell",
+  "version": "0.1.0-dev.0",
+  "description": "Audits a Supabase project and reports its ties to the Supabase platform, with a plan for moving to plain PostgreSQL.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Deluha/project-nightwell.git"
+  },
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || ^26.0.0"
+  },
+  "bin": {
+    "nightwell": "bin/nightwell.js"
+  },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "verify": "node scripts/verify.ts",
+    "lint:package": "npm run build && publint --strict && attw --pack . --profile esm-only"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@babel/parser": "8.1.3",
+    "@babel/types": "8.1.3",
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.7",
+    "@vitest/coverage-v8": "5.1.2",
+    "eslint": "10.15.0",
+    "eslint-config-prettier": "10.1.8",
+    "libpg-query": "18.2.6",
+    "prettier": "3.10.1",
+    "publint": "0.3.25",
+    "supabase": "3.4.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.74.0",
+    "vitest": "5.1.2"
+  }
+}

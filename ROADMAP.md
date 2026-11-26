@@ -55,7 +55,7 @@ this repository.
 - **Delivery.** One pull request per phase, several commits each.
 - **Phase order.** Phase 0 (foundations) runs first, in a development environment that can reach a hosted
   Supabase database; Phase 1 is the demo fixture; Phase 2 the database scan with terminal and JSON output.
-  The rest is ordered below (*proposed*).
+  The rest is ordered below (confirmed by the owner, 2026-11-26).
 - **Sign-off.** Each phase lists what the owner confirms before its code is written.
 - **Reviewed.** This plan was revised on 2026-11-25 after five independent reviews (project and release
   practice; technical design; consistency and executability; security; adopters and prior art). Their
@@ -104,6 +104,13 @@ behavioural:
   credential in its environment stops and tells the owner instead of using it. Checks that would need a
   disposable project (the shape of a dashboard-created webhook, scanner-role grants) wait for the
   throwaway project in Phase 3.
+- **Amendment for the Phase 0 session** (owner, 2026-11-26). No dedicated role was created. The owner
+  authorised the Phase 0 session to run read-only queries through the Supabase management interface's
+  SQL endpoint in its read-only mode, for planning only and changing nothing. Every other rule above
+  stands: committed `SELECT`-only queries, the never-read list, nothing identifying leaves. Consequences:
+  U9 cannot be checked without a pooler connection and stays unverified until Phase 3; the session's
+  outside reads are limited to the package registries and release tags it needs to pin its tools. The
+  amendment ends with Phase 0; "no session holds an account-level token" binds Phase 3 as written.
 
 The hosted **reference snapshot** of the demo project itself (Phase 3) is separate. It is owner-assisted
 (confirmed by the owner, 2026-11-25): the owner creates a throwaway project in an organisation that holds
@@ -192,11 +199,42 @@ dashboard-created webhook to Phase 3 commit 5.
 | U8 | What a hosted project contains that the local CLI database does not (roles, extensions, settings, webhook objects) | The hosted reference snapshot and platform inventory (Phase 3) |
 | U9 | A single explicit transaction with `SET LOCAL` and savepoints works through the transaction-mode pooler | The connection design (Phases 2 and 3) |
 
+**Verified by observation** (Phase 0 commit 10, 2026-11-26). These are observations, not public sources;
+no rule may cite them. Hosted: the committed queries in `scripts/hosted-verify/`, run through the
+management interface's read-only SQL endpoint on one hosted project in use (PostgreSQL 17), not an empty
+one. Local: `scripts/local-verify/assumptions.sql` on the official `postgres:17` image (17.12).
+
+| # | Result | Method |
+|---|---|---|
+| U1 | **Half verified.** `information_schema` lists only what the caller has privileges on (local: a role with one grant saw one table of several). The `cron.job` half is unverified: `pg_cron` is not installed on the hosted project, and installing it would be a write. On hosted, the read-only role may select every table in the managed schemas, so the comparison there shows nothing | Local, hosted |
+| U2 | **Verified.** Recorded in `pg_depend`: policy expressions, column defaults, views, `BEGIN ATOMIC` functions. Not recorded: string-bodied SQL functions, PL/pgSQL functions, string constants, and nothing transitive. A policy's roles are recorded, but in `pg_shdepend` | Local |
+| U3 | **Verified, with two corrections.** A read-only transaction allows `pg_notify`, advisory locks, `set_config`, a write through `dblink` (which survives the rollback) and a write to an existing temp table; it refuses creating a temp table and writing to an ordinary table. `pg_get_viewdef` leaves a lock until the end of the transaction on the relations the view reads, not on the view; `pg_get_indexdef` leaves none | Local |
+| U4 | **Verified.** The qualifier is omitted when the schema is on `search_path` and kept under `search_path = pg_catalog` | Local |
+| U5 | **Verified.** A superuser, the table owner and a `BYPASSRLS` role are not subject to policies; an ordinary role is; the owner is under `FORCE ROW LEVEL SECURITY` | Local |
+| U6 | **Observed: not readable.** No `pgrst.*` entry exists in `pg_db_role_setting` for any role or the database on the hosted project, so the exposed-schema list cannot be read from there | Hosted |
+| U8 | **Hosted half observed** (one project in use, so an absence may be the owner's choice). Schemas present: `auth`, `storage`, `realtime`, `vault`, `extensions`, `graphql`, `graphql_public`, `pgbouncer`; absent: `supabase_functions`, `supabase_migrations`, `cron`, `net`, `pgmq`, `pgsodium`. Extensions installed: `supabase_vault`, `pgcrypto`, `uuid-ossp`, `pg_stat_statements`; not installed: `pg_graphql`, `pg_net`, `pg_cron`, `pgsodium`, `pgjwt`, `pg_jsonschema`, `wrappers`, `index_advisor`, `pgmq`. The `supabase_realtime` publication exists; the webhook function does not. Platform roles beyond the evidence base: `supabase_etl_admin`, `supabase_privileged_role`, `supabase_read_only_user`, `supabase_replication_admin`, `supabase_realtime_admin`; `postgres` is not a superuser and bypasses row security | Hosted |
+| U9 | **Unverified.** The session had no pooler connection; Phase 3 commit 1 resolves it on the throwaway project | — |
+| — | **Also observed:** the management interface's read-only endpoint runs as `supabase_read_only_user`, which bypasses row security and has `default_transaction_read_only = on` | Hosted |
+
+After the run, review narrowed the two role queries from name prefixes to a fixed list of platform roles;
+they were not run again, and the recorded result names only roles on that list.
+
+Open for the owner (Phase 0 deviations, not self-granted): the `./schema/*` export of commit 1 is not in the
+package yet, because the package linter rejects an export that matches no file — proposed: add it in Phase
+2 commit 1 with the first schema; and the sign-off of contributions is stated in `CONTRIBUTING.md` but not
+yet checked by a hook or CI.
+
+What this changes for later phases (proposed to the owner; no phase text is altered here): U1's `cron.job`
+half moves to Phase 1 commit 5, where the fixture has `pg_cron`; for U6, Phase 2 commit 7 should expect no
+database setting on a hosted project and fall to `--exposed-schemas` or the default labelled "assumed"; for
+U3, the lock budget of Phases 2 and 3 concerns the relations a deparsed view reads, and R1's preamble need
+not guard against temp-table creation.
+
 ### Status
 
 | Phase | Status | Pull request |
 |---|---|---|
-| 0 — Foundations | Not started | |
+| 0 — Foundations | In review | [#2](https://github.com/Deluha/project-nightwell/pull/2) |
 | 1 — Skorpyron: the demo fixture | Not started | |
 | 2 — Trilliax: database scan, terminal and JSON | Not started | |
 | 3 — Trilliax: database scan hardening | Not started | |
@@ -280,7 +318,7 @@ section is the specification.
    sweeping refactors; every pull request leaves touched files clearer than it found them.
 
 **Hard rules** (R1–R10 confirmed by the owner on 2026-11-25 and sharpened by the later reviews; R11 and the
-sharpened wording are *proposed*; short form in `CLAUDE.md`, full form in `references/conventions.md`):
+sharpened wording confirmed on 2026-11-26; short form in `CLAUDE.md`, full form in `references/conventions.md`):
 
 | # | Rule |
 |---|---|
@@ -374,7 +412,7 @@ something, the prose that asked for it is replaced by a pointer.
 operating systems and every supported Node line, with network and database connections blocked by the
 harness, not by convention; live tests run on Linux. Paths in output are POSIX-style and relative. Golden
 files pin output; they are regenerated only for an intended change through an explicit switch, the diff is
-the reviewable proof, and a missing golden file fails. Coverage thresholds fail CI (*proposed*: 90% of
+the reviewable proof, and a missing golden file fails. Coverage thresholds fail CI (confirmed, 2026-11-26: 90% of
 lines and branches for the engine, model, score and plan modules; 80% overall).
 
 **Project, community and security documents** (commit 8): `README.md` (what it is; what it is not — a
@@ -396,7 +434,7 @@ snapshot or report publicly) and the pull-request template (Summary; Changes; Do
 Review agents run — maintainers; Not tested live / to do by hand; Lessons; Rule-pack changes with sources
 and fixture coverage; Ask-first items touched).
 
-**Stability policy** (`docs/stability.md`, *proposed*): the public contract is the CLI's commands, flags
+**Stability policy** (`docs/stability.md`, confirmed 2026-11-26): the public contract is the CLI's commands, flags
 and exit codes; the file formats; finding and rule ids; the exported API. During 0.x a breaking change
 ships only in a minor version and is listed under "Breaking" in the release notes. A patch release may add
 rules and correct false positives or negatives; it never changes an existing rule's id or severity. A
@@ -409,7 +447,9 @@ are accepted and reported as untested.
 - Name clearance for "Nightwell" as a public product name (package registry, code host, trademark search)
   before Phase 0's first commit; reserve the npm package name by hand and revoke every token afterwards
   (`nightwell` was unclaimed on 2026-11-25).
-- Repository: require `CI gate` and a pull request on the default branch with no bypass; forbid
+- Repository: require `CI gate`, `Path guard` (added in Phase 0: it runs from the base branch, so a pull
+  request cannot change it; keep the merge queue off, or the check never reports for a queued merge) and a
+  pull request on the default branch with no bypass; forbid
   force-pushes; protect release tags; workflow runs from outside contributors need approval; default
   workflow token read-only; workflows may not create or approve pull requests; turn on private
   vulnerability reporting, secret-scanning push protection and dependency alerts.
@@ -421,14 +461,25 @@ Confirmed by the owner on 2026-11-25, not to be re-asked: Phase 0 running first;
 TypeScript on Node.js distributed through npm; hard rules R1–R10 and the ask-first list as first worded;
 where codenames appear; the throwaway hosted project for the reference snapshot.
 
-Sign-off (still open): the split into Phases 0–10 and their order; R11 and the sharpened wording of
-R1–R4, R9 and R10; the hosted-database guard-rails; the supported Node lines, the parser, the runtime
-dependency list and whether dependencies are bundled; the repository layout; agent tiers; coverage
-thresholds; the stability policy; the threat model's non-goals; sign-off of contributions (*proposed*: a
-developer certificate of origin, no contributor licence agreement); whether the guidance checker skips
-paths this file names for phases not yet built.
+Confirmed by the owner on 2026-11-26 (the Phase 0 sign-off; nothing remains open):
 
-Tech stack (TypeScript confirmed by the owner, 2026-11-25; the details below it *proposed*):
+- The name "Nightwell" is cleared; the package and binary are `nightwell`.
+- The split into Phases 0–10 and their order; R11 and the sharpened wording of R1–R4, R9 and R10.
+- The hosted-database guard-rails, with the amendment for the Phase 0 session recorded under "The hosted
+  database".
+- Node lines 22, 24 and 26. The one JavaScript/TypeScript parser is `@babel/parser` (pure JavaScript, no
+  dependencies, no install script; weighed against the TypeScript compiler, whose size and changing
+  programming interface counted against it, and a native parser, which the production-tree rule excludes).
+  The other runtime dependencies are `pg`, `yaml`, `smol-toml` and `ajv`, each added by the phase that
+  first uses it; runtime dependencies are bundled into the tarball.
+- The repository layout; the agent tiers; the coverage thresholds; the stability policy; the threat
+  model's non-goals.
+- Contributions are signed off with a developer certificate of origin; there is no contributor licence
+  agreement.
+- The guidance checker skips paths this file names for phases not yet built, from a committed list in
+  which every entry names its phase and fails the check once the path exists.
+
+Tech stack (TypeScript confirmed by the owner, 2026-11-25; the details below it on 2026-11-26):
 
 | Approach | For | Against |
 |---|---|---|
@@ -438,11 +489,10 @@ Tech stack (TypeScript confirmed by the owner, 2026-11-25; the details below it 
 
 Details: Node lines 22, 24 and 26 (every line supported upstream, enforced by `engines` and by the binary
 itself). Runtime dependencies: a PostgreSQL driver, a YAML parser, a TOML parser, a JSON Schema validator
-and one JavaScript/TypeScript parser (also used for JSONC) — the choice between the TypeScript compiler in
-syntax-only mode and a lighter parser is a sign-off item, with its size and upcoming API changes weighed;
+and one JavaScript/TypeScript parser (also used for JSONC) — `@babel/parser`, as recorded above;
 argument parsing and colour from Node built-ins. Development only: a PostgreSQL parser distributed without
 an install script, for the query and shim checkers. The published CLI resolves nothing at install time:
-runtime dependencies are bundled into the tarball (*proposed*), so a user's install cannot pick up a newer
+runtime dependencies are bundled into the tarball, so a user's install cannot pick up a newer
 transitive release than the one tested. Layout: `src/` (`cli/`, `collect/`, `codescan/`, `engine/`,
 `model/`, `score/`, `plan/`, `shims/`, `report/`, `index.ts`), `packs/` (the rule pack), `queries/`,
 `data/` (`shims/`, `score/`, `plan/`, `options/`, `platform/`), `schema/`, `fixture/`, `scripts/`,

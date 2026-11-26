@@ -1,0 +1,29 @@
+name: False positive or missed tie
+description: A finding that should not be there, or a dependency that was not reported
+labels: ["rules"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never attach a catalog snapshot or a report from a real project, and never paste a connection string or a key: issues are public.
+  - type: input
+    id: rule
+    attributes:
+      label: Rule id
+      description: The rule id of the finding, or the rule you expected
+    validations:
+      required: false
+  - type: textarea
+    id: example
+    attributes:
+      label: Smallest example
+      description: The smallest synthetic SQL or code that shows it. Do not use names or values from a real project.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: What Nightwell should have reported, and why
+    validations:
+      required: true

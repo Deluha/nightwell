@@ -1,0 +1,38 @@
+# Packs the tarball, installs it into an empty directory with install scripts
+# off, runs the binary, and lints the export map and the types.
+name: ci-package
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  package:
+    name: package (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [22, 24, 26]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install from the lockfile, install scripts off
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build, pack, install into an empty directory and run the binary
+        run: bash scripts/dev/package-smoke.sh
+      - name: Lint the export map and the types
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        run: npm run lint:package

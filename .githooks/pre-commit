@@ -1,0 +1,7 @@
+#!/bin/sh
+# Secret scan of the staged changes, conventions, lint, guidance integrity.
+set -eu
+bash scripts/dev/secret-scan.sh staged
+node scripts/check-conventions.ts
+node scripts/check-guidance-integrity.ts
+npm run --silent lint

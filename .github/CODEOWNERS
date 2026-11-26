@@ -1,0 +1,11 @@
+# Every change needs the owner's review. The protected paths are listed one by
+# one because check-guidance-integrity requires an entry for each of them
+# (scripts/data/protected-paths.json).
+* @Deluha
+
+/.claude/ @Deluha
+/.github/ @Deluha
+/.githooks/ @Deluha
+/scripts/ @Deluha
+/.gitleaks.toml @Deluha
+/CLAUDE.md @Deluha

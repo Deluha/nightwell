@@ -1,0 +1,49 @@
+# The one entry point for required checks: calls the four CI workflows and ends
+# in the single check to require on the default branch, "CI gate".
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  pre-commit:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci-pre-commit.yml
+  docs-sync:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci-docs-sync.yml
+  tests:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci-tests.yml
+  package:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci-package.yml
+
+  gate:
+    name: CI gate
+    if: always()
+    needs: [pre-commit, docs-sync, tests, package]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require every CI job to have succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then exit 1; fi
+          done

@@ -15,7 +15,9 @@
       ".github/workflows/**",
       ".gitleaks.toml",
       ".claude/settings.json",
-      ".claude/hooks/**"
+      ".claude/hooks/**",
+      "scripts/hosted-verify/**",
+      "scripts/local-verify/**"
     ],
     "doc": ".claude/skills/nightwell-development/references/qa-and-ci.md"
   },

@@ -199,6 +199,29 @@ dashboard-created webhook to Phase 3 commit 5.
 | U8 | What a hosted project contains that the local CLI database does not (roles, extensions, settings, webhook objects) | The hosted reference snapshot and platform inventory (Phase 3) |
 | U9 | A single explicit transaction with `SET LOCAL` and savepoints works through the transaction-mode pooler | The connection design (Phases 2 and 3) |
 
+**Verified by observation** (Phase 0 commit 10, 2026-11-26). These are observations, not public sources;
+no rule may cite them. Hosted: the committed queries in `scripts/hosted-verify/`, run through the
+management interface's read-only SQL endpoint on one hosted project in use (PostgreSQL 17), not an empty
+one. Local: `scripts/local-verify/assumptions.sql` on the official `postgres:17` image (17.12).
+
+| # | Result | Method |
+|---|---|---|
+| U1 | **Half verified.** `information_schema` lists only what the caller has privileges on (local: a role with one grant saw one table of several). The `cron.job` half is unverified: `pg_cron` is not installed on the hosted project, and installing it would be a write. On hosted, the read-only role may select every table in the managed schemas, so the comparison there shows nothing | Local, hosted |
+| U2 | **Verified.** Recorded in `pg_depend`: policy expressions, column defaults, views, `BEGIN ATOMIC` functions. Not recorded: string-bodied SQL functions, PL/pgSQL functions, string constants, and nothing transitive. A policy's roles are recorded, but in `pg_shdepend` | Local |
+| U3 | **Verified, with two corrections.** A read-only transaction allows `pg_notify`, advisory locks, `set_config`, a write through `dblink` (which survives the rollback) and a write to an existing temp table; it refuses creating a temp table and writing to an ordinary table. `pg_get_viewdef` leaves a lock until the end of the transaction on the relations the view reads, not on the view; `pg_get_indexdef` leaves none | Local |
+| U4 | **Verified.** The qualifier is omitted when the schema is on `search_path` and kept under `search_path = pg_catalog` | Local |
+| U5 | **Verified.** A superuser, the table owner and a `BYPASSRLS` role are not subject to policies; an ordinary role is; the owner is under `FORCE ROW LEVEL SECURITY` | Local |
+| U6 | **Observed: not readable.** No `pgrst.*` entry exists in `pg_db_role_setting` for any role or the database on the hosted project, so the exposed-schema list cannot be read from there | Hosted |
+| U8 | **Hosted half observed** (one project in use, so an absence may be the owner's choice). Schemas present: `auth`, `storage`, `realtime`, `vault`, `extensions`, `graphql`, `graphql_public`, `pgbouncer`; absent: `supabase_functions`, `supabase_migrations`, `cron`, `net`, `pgmq`, `pgsodium`. Extensions installed: `supabase_vault`, `pgcrypto`, `uuid-ossp`, `pg_stat_statements`; not installed: `pg_graphql`, `pg_net`, `pg_cron`, `pgsodium`, `pgjwt`, `pg_jsonschema`, `wrappers`, `index_advisor`, `pgmq`. The `supabase_realtime` publication exists; the webhook function does not. Platform roles beyond the evidence base: `supabase_etl_admin`, `supabase_privileged_role`, `supabase_read_only_user`, `supabase_replication_admin`, `supabase_realtime_admin`; `postgres` is not a superuser and bypasses row security | Hosted |
+| U9 | **Unverified.** The session had no pooler connection; Phase 3 commit 1 resolves it on the throwaway project | — |
+| — | **Also observed:** the management interface's read-only endpoint runs as `supabase_read_only_user`, which bypasses row security and has `default_transaction_read_only = on` | Hosted |
+
+What this changes for later phases (proposed to the owner; no phase text is altered here): U1's `cron.job`
+half moves to Phase 1 commit 5, where the fixture has `pg_cron`; for U6, Phase 2 commit 7 should expect no
+database setting on a hosted project and fall to `--exposed-schemas` or the default labelled "assumed"; for
+U3, the lock budget of Phases 2 and 3 concerns the relations a deparsed view reads, and R1's preamble need
+not guard against temp-table creation.
+
 ### Status
 
 | Phase | Status | Pull request |

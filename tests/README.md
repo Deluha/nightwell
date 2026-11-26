@@ -2,11 +2,12 @@
 
 `tests/` is the only place tests live; a checker fails on a test file anywhere else.
 
-| Path              | Holds                                              |
-| ----------------- | -------------------------------------------------- |
-| `tests/setup/`    | The offline harness, loaded before every test file |
-| `tests/cli/`      | The command-line interface                         |
-| `tests/checkers/` | The repository checkers in `scripts/checkers/`     |
+| Path                   | Holds                                                                    |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `tests/setup/`         | The offline harness, loaded before every test file                       |
+| `tests/cli/`           | The command-line interface                                               |
+| `tests/checkers/`      | The repository checkers in `scripts/checkers/`                           |
+| `tests/hosted-verify/` | The shape of the hosted verification queries in `scripts/hosted-verify/` |
 
 ## Running
 

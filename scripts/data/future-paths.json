@@ -1,5 +1,4 @@
 {
-  "scripts/hosted-verify/": "Phase 0, commit 10",
   "fixture/": "Phase 1",
   "src/model/": "Phase 2",
   "src/collect/": "Phase 2",

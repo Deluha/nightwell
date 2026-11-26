@@ -73,6 +73,10 @@ The rules are in `ROADMAP.md` under "The hosted database" and are mandatory: it 
   reference, user name or credential in the repository, a commit message, a pull request, a report, a
   subagent brief, a note or agent memory. Query output is not committed.
 - A session that finds a credential broader than the one the roadmap allows stops and tells the owner.
+- `tests/hosted-verify/` keeps the queries' shape: one `SELECT` each, no write, no side-effect function,
+  catalogs only.
+- `scripts/local-verify/assumptions.sql` checks general PostgreSQL behaviour. It creates scratch objects
+  and runs only against a throwaway local container, never against the hosted database.
 - `.claude/settings.json` denies the commands that would bypass these rules.
 
 ## Outside contributions

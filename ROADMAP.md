@@ -234,7 +234,7 @@ not guard against temp-table creation.
 
 | Phase | Status | Pull request |
 |---|---|---|
-| 0 — Foundations | In progress | |
+| 0 — Foundations | In review | [#2](https://github.com/Deluha/project-nightwell/pull/2) |
 | 1 — Skorpyron: the demo fixture | Not started | |
 | 2 — Trilliax: database scan, terminal and JSON | Not started | |
 | 3 — Trilliax: database scan hardening | Not started | |

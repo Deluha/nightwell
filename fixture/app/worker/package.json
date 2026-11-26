@@ -1,0 +1,8 @@
+{
+  "name": "cellarbook-worker",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "@supabase/supabase-js": "2.119.2"
+  }
+}

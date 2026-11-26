@@ -42,7 +42,8 @@ jobs:
           mkdir -p "$out"
           docker exec supabase_db_cellarbook pg_dump -U postgres -d postgres --schema-only > "$out/schema.sql"
           for query in scripts/hosted-verify/u8-*.sql; do
-            docker exec -i supabase_db_cellarbook psql -U postgres -d postgres --no-psqlrc -X -v ON_ERROR_STOP=1 < "$query" > "$out/$(basename "$query" .sql).txt"
+            result="$out/$(basename "$query" .sql).txt"
+            docker exec -i supabase_db_cellarbook psql -U postgres -d postgres --no-psqlrc -X -v ON_ERROR_STOP=1 < "$query" > "$result"
           done
           {
             echo "cli: supabase $(node -p "require('./package.json').devDependencies.supabase")"

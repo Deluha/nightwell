@@ -31,7 +31,7 @@ describe.skipIf(process.env["NIGHTWELL_LIVE"] !== "1")("the running fixture", ()
     [17, ["PG17_DB", "AUTH", "REALTIME", "STORAGE", "POOLER"]],
     [15, ["PG15_DB", "AUTH", "REALTIME", "STORAGE", "POOLER"]],
   ] as const)("the locked CLI's local image tags for PostgreSQL %i are the pinned ones", async (major, names) => {
-    const { stdout } = await run("node_modules/.bin/supabase", ["services", "--workdir", "fixture"], {
+    const { stdout } = await run("node_modules/.bin/supabase", ["services", "--workdir", "fixture", "--output-format", "json"], {
       env: { ...process.env, SUPABASE_DB_MAJOR_VERSION: String(major) },
     });
     const services = (JSON.parse(stdout) as { services: { name: string; local: string }[] }).services;

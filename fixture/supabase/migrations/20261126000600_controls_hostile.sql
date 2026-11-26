@@ -162,15 +162,15 @@ create policy "grape_varieties_partner_header" on public.grape_varieties
       = 'sb_publishable_NIGHTWELLCANARY0000000002'
   );
 
--- planted: db.canary-comment (tie) — canaries in a comment text (email and high-entropy)
+-- planted: db.canary-comment (control) — canaries in a comment text (email and high-entropy)
 comment on column public.grape_varieties.name is
   'Contact canary.nightwell@example.com, reference nwc_g11JH4_kk_4wrEW2ePlDnsD_EDipifiL';
 
--- planted: db.canary-column-default (tie) — canary as a column default (legacy-jwt)
+-- planted: db.canary-column-default (control) — canary as a column default (legacy-jwt)
 alter table public.grape_varieties add column legacy_token text
   default 'eyJhbGciOiJub25lIiwidHlwIjoiTklHSFRXRUxMLUNBTkFSWSJ9.eyJyb2xlIjoibmlnaHR3ZWxsLWNhbmFyeSIsInJlZiI6Im5vdC1hLXByb2plY3QifQ.bm90LWEtc2lnbmF0dXJl';
 
--- planted: db.canary-view-literal (tie) — canary as a literal column of a security_invoker view (platform-secret-key)
+-- planted: db.canary-view-literal (control) — canary as a literal column of a security_invoker view (platform-secret-key)
 -- source: RLS#expose-a-view-safely (read 2026-11-26)
 create view public.partner_feed
 with (security_invoker = true)

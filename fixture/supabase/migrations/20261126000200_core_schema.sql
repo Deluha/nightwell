@@ -74,7 +74,7 @@ create table public.bottles (
   vintage_decade int generated always as ((vintage / 10) * 10) stored
 );
 
--- planted: db.tasting-notes-partitioned (tie) — table partitioned by range, with an identity column, foreign keys and two partitions
+-- planted: db.tasting-notes-partitioned (control) — table partitioned by range, with an identity column, foreign keys and two partitions
 -- source: https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/partitions.mdx (read 2026-11-26)
 create table public.tasting_notes (
   id bigint generated always as identity,

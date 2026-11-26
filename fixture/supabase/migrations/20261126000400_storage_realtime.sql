@@ -67,7 +67,7 @@ create policy "cellar_photos_public_read" on storage.objects
 -- (publish_via_partition_root = false) and changes are published under the partition names.
 alter publication supabase_realtime add table public.tasting_notes, public.bottles;
 
--- planted: db.replica-identity-full (tie) — old records on update and delete
+-- planted: db.replica-identity-full (control) — old records on update and delete
 -- source: PGCHG#receiving-old-records (read 2026-11-26)
 alter table public.bottles replica identity full;
 

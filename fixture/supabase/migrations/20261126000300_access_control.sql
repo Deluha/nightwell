@@ -16,7 +16,7 @@
 -- planted: db.cellars-is-public-column (control) — plain column added with alter table; used by the anon policy
 alter table public.cellars add column is_public boolean not null default false;
 
--- planted: db.rls-enabled (tie) — row level security on every public table
+-- planted: db.rls-enabled (control) — row level security on every public table
 -- source: RLS#enable-rls-and-set-the-grants (read 2026-11-26)
 alter table public.cellars enable row level security;
 alter table public.members enable row level security;

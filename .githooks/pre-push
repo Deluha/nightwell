@@ -1,0 +1,4 @@
+#!/bin/sh
+# The offline suite.
+set -eu
+npm test --silent

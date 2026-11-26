@@ -1,0 +1,53 @@
+# Every git hook on the whole tree, the secret scan over the pull request's
+# commits, messages and text, and the workflow linter.
+name: ci-pre-commit
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: "1.24"
+          cache: false
+      - name: Install the locked tools
+        run: bash scripts/dev/install-tools.sh
+      - name: Secret scan of the tree
+        run: bash scripts/dev/secret-scan.sh tree
+      - name: Secret scan of the pull request's commits and messages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/dev/secret-scan.sh range "$BASE_SHA"
+      - name: Secret scan of the pull request's text
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          text="$(mktemp -d)"
+          printf '%s\n\n%s\n' "$PR_TITLE" "$PR_BODY" > "$text/pull-request.txt"
+          bash scripts/dev/secret-scan.sh text "$text"
+      - name: Conventions
+        run: node scripts/check-conventions.ts
+      - name: Guidance integrity
+        run: node scripts/check-guidance-integrity.ts
+      - name: Lint and format
+        run: npm run lint
+      - name: Workflow linter
+        run: .tools/bin/actionlint

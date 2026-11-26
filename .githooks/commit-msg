@@ -1,0 +1,5 @@
+#!/bin/sh
+# Secret scan of the message, then docs sync for the commit being written.
+set -eu
+bash scripts/dev/secret-scan.sh text "$1"
+node scripts/check-docs-sync.ts --message-file "$1"

@@ -1,0 +1,42 @@
+# Secret-scan configuration. The default rules stay on; the rules below add the
+# shapes the hosted-database rules forbid in this repository: project
+# references, project and pooler hosts, platform keys and connection strings
+# that carry a password. Changing this file is an ask-first item.
+title = "nightwell"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "nightwell-project-host"
+description = "A hosted project host; it carries the project reference"
+regex = '''\b[a-z0-9]{20}\.supabase\.(?:co|com|in|net|red)\b'''
+
+[[rules]]
+id = "nightwell-pooler-host"
+description = "A connection pooler host"
+regex = '''\b[a-z0-9-]+\.pooler\.supabase\.com\b'''
+
+[[rules]]
+id = "nightwell-pooler-username"
+description = "A pooler user name; it carries the project reference"
+regex = '''\bpostgres\.[a-z]{20}\b'''
+
+[[rules]]
+id = "nightwell-project-reference"
+description = "A bare project reference: a word of exactly twenty lower-case letters"
+regex = '''\b[a-z]{20}\b'''
+# Entropy cannot tell a reference from a long English word, so every such word
+# is reported; a real word that trips the rule is added here.
+[[rules.allowlists]]
+regexes = ['''^(internationalization|uncharacteristically|counterrevolutionary|electroencephalogram)$''']
+
+[[rules]]
+id = "nightwell-platform-key"
+description = "A platform API key"
+regex = '''\bsb_(?:secret|publishable)_[A-Za-z0-9_-]{16,}'''
+
+[[rules]]
+id = "nightwell-connection-string"
+description = "A PostgreSQL connection string that carries a password"
+regex = '''postgres(?:ql)?://[^\s:@/]+:[^\s@/]+@'''

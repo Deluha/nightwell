@@ -1,8 +1,5 @@
 {
-  ".githooks/": "Phase 0, commit 7",
-  ".github/CODEOWNERS": "Phase 0, commit 7",
   ".github/pull_request_template.md": "Phase 0, commit 8",
-  ".gitleaks.toml": "Phase 0, commit 7",
   "docs/": "Phase 0, commit 8",
   "docs/threat-model.md": "Phase 0, commit 8",
   "docs/stability.md": "Phase 0, commit 8",

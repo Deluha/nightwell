@@ -1,0 +1,41 @@
+# Fails a pull request from outside the maintainers that touches a protected
+# path until a maintainer has read the diff on the code host and applied the
+# label. It runs the base branch's code only and never checks out the pull
+# request; a new push removes the label, so every revision is read.
+name: path-guard
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions: {}
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      LABEL: maintainer-reviewed
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Remove the label when an outside pull request gets a new push
+        if: >-
+          github.event.action == 'synchronize' &&
+          !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+        run: gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --remove-label "$LABEL" || true
+      - name: Guard the protected paths
+        env:
+          ASSOCIATION: ${{ github.event.pull_request.author_association }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt"
+          gh api "repos/$GITHUB_REPOSITORY/issues/$PR/labels" --paginate --jq '.[].name' > "$RUNNER_TEMP/labels.txt"
+          node scripts/path-guard.ts --association "$ASSOCIATION" --label "$LABEL" --files "$RUNNER_TEMP/files.txt" --labels "$RUNNER_TEMP/labels.txt"

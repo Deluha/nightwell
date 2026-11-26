@@ -20,13 +20,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./schema/*": "./schema/*",
     "./package.json": "./package.json"
   },
   "files": [
     "bin/",
     "dist/",
-    "schema/",
     "NOTICE",
     "THIRD_PARTY_NOTICES.md"
   ],
@@ -37,7 +35,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "verify": "node scripts/verify.ts"
+    "verify": "node scripts/verify.ts",
+    "lint:package": "npm run build && publint --strict && attw --pack . --profile esm-only"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",

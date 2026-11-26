@@ -1,6 +1,12 @@
 [
   {
-    "area": ["scripts/checkers/**", "scripts/data/**", "scripts/check-*.ts", "scripts/verify.ts"],
+    "area": [
+      "scripts/checkers/**",
+      "scripts/data/**",
+      "scripts/check-*.ts",
+      "scripts/path-guard.ts",
+      "scripts/verify.ts"
+    ],
     "doc": ".claude/skills/nightwell-development/references/checkers.md"
   },
   {

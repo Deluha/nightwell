@@ -2,6 +2,7 @@
 # Installs the development tools: the locked npm packages (which include the
 # pinned Supabase CLI), the pinned secret scanner and workflow linter, and the
 # git hooks. Safe to run again. Versions are pinned here and nowhere else.
+# The workflow linter needs Go 1.25 or newer.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -30,8 +31,15 @@ install_go_tool() {
     echo "install-tools: Go is not installed; skipping $name (CI still runs it)" >&2
     return
   fi
-  local actual
-  actual="$(go mod download -json "$module@$version" | sed -n 's/.*"Sum": "\(.*\)",*/\1/p')"
+  # The download reports a failure (an older Go than the module needs, no
+  # network) as JSON on standard output with a non-zero status: show it.
+  local info actual
+  if ! info="$(go mod download -json "$module@$version")"; then
+    echo "install-tools: cannot download $module@$version:" >&2
+    echo "$info" >&2
+    exit 1
+  fi
+  actual="$(echo "$info" | sed -n 's/.*"Sum": "\(.*\)",*/\1/p')"
   if [ "$actual" != "$sum" ]; then
     echo "install-tools: checksum mismatch for $module@$version" >&2
     exit 1

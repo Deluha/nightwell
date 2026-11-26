@@ -55,7 +55,7 @@ this repository.
 - **Delivery.** One pull request per phase, several commits each.
 - **Phase order.** Phase 0 (foundations) runs first, in a development environment that can reach a hosted
   Supabase database; Phase 1 is the demo fixture; Phase 2 the database scan with terminal and JSON output.
-  The rest is ordered below (*proposed*).
+  The rest is ordered below (confirmed by the owner, 2026-11-26).
 - **Sign-off.** Each phase lists what the owner confirms before its code is written.
 - **Reviewed.** This plan was revised on 2026-11-25 after five independent reviews (project and release
   practice; technical design; consistency and executability; security; adopters and prior art). Their
@@ -104,6 +104,13 @@ behavioural:
   credential in its environment stops and tells the owner instead of using it. Checks that would need a
   disposable project (the shape of a dashboard-created webhook, scanner-role grants) wait for the
   throwaway project in Phase 3.
+- **Amendment for the Phase 0 session** (owner, 2026-11-26). No dedicated role was created. The owner
+  authorised the Phase 0 session to run read-only queries through the Supabase management interface's
+  SQL endpoint in its read-only mode, for planning only and changing nothing. Every other rule above
+  stands: committed `SELECT`-only queries, the never-read list, nothing identifying leaves. Consequences:
+  U9 cannot be checked without a pooler connection and stays unverified until Phase 3; the session's
+  outside reads are limited to the package registries and release tags it needs to pin its tools. The
+  amendment ends with Phase 0; "no session holds an account-level token" binds Phase 3 as written.
 
 The hosted **reference snapshot** of the demo project itself (Phase 3) is separate. It is owner-assisted
 (confirmed by the owner, 2026-11-25): the owner creates a throwaway project in an organisation that holds
@@ -196,7 +203,7 @@ dashboard-created webhook to Phase 3 commit 5.
 
 | Phase | Status | Pull request |
 |---|---|---|
-| 0 — Foundations | Not started | |
+| 0 — Foundations | In progress | |
 | 1 — Skorpyron: the demo fixture | Not started | |
 | 2 — Trilliax: database scan, terminal and JSON | Not started | |
 | 3 — Trilliax: database scan hardening | Not started | |
@@ -280,7 +287,7 @@ section is the specification.
    sweeping refactors; every pull request leaves touched files clearer than it found them.
 
 **Hard rules** (R1–R10 confirmed by the owner on 2026-11-25 and sharpened by the later reviews; R11 and the
-sharpened wording are *proposed*; short form in `CLAUDE.md`, full form in `references/conventions.md`):
+sharpened wording confirmed on 2026-11-26; short form in `CLAUDE.md`, full form in `references/conventions.md`):
 
 | # | Rule |
 |---|---|
@@ -374,7 +381,7 @@ something, the prose that asked for it is replaced by a pointer.
 operating systems and every supported Node line, with network and database connections blocked by the
 harness, not by convention; live tests run on Linux. Paths in output are POSIX-style and relative. Golden
 files pin output; they are regenerated only for an intended change through an explicit switch, the diff is
-the reviewable proof, and a missing golden file fails. Coverage thresholds fail CI (*proposed*: 90% of
+the reviewable proof, and a missing golden file fails. Coverage thresholds fail CI (confirmed, 2026-11-26: 90% of
 lines and branches for the engine, model, score and plan modules; 80% overall).
 
 **Project, community and security documents** (commit 8): `README.md` (what it is; what it is not — a
@@ -396,7 +403,7 @@ snapshot or report publicly) and the pull-request template (Summary; Changes; Do
 Review agents run — maintainers; Not tested live / to do by hand; Lessons; Rule-pack changes with sources
 and fixture coverage; Ask-first items touched).
 
-**Stability policy** (`docs/stability.md`, *proposed*): the public contract is the CLI's commands, flags
+**Stability policy** (`docs/stability.md`, confirmed 2026-11-26): the public contract is the CLI's commands, flags
 and exit codes; the file formats; finding and rule ids; the exported API. During 0.x a breaking change
 ships only in a minor version and is listed under "Breaking" in the release notes. A patch release may add
 rules and correct false positives or negatives; it never changes an existing rule's id or severity. A
@@ -421,14 +428,25 @@ Confirmed by the owner on 2026-11-25, not to be re-asked: Phase 0 running first;
 TypeScript on Node.js distributed through npm; hard rules R1–R10 and the ask-first list as first worded;
 where codenames appear; the throwaway hosted project for the reference snapshot.
 
-Sign-off (still open): the split into Phases 0–10 and their order; R11 and the sharpened wording of
-R1–R4, R9 and R10; the hosted-database guard-rails; the supported Node lines, the parser, the runtime
-dependency list and whether dependencies are bundled; the repository layout; agent tiers; coverage
-thresholds; the stability policy; the threat model's non-goals; sign-off of contributions (*proposed*: a
-developer certificate of origin, no contributor licence agreement); whether the guidance checker skips
-paths this file names for phases not yet built.
+Confirmed by the owner on 2026-11-26 (the Phase 0 sign-off; nothing remains open):
 
-Tech stack (TypeScript confirmed by the owner, 2026-11-25; the details below it *proposed*):
+- The name "Nightwell" is cleared; the package and binary are `nightwell`.
+- The split into Phases 0–10 and their order; R11 and the sharpened wording of R1–R4, R9 and R10.
+- The hosted-database guard-rails, with the amendment for the Phase 0 session recorded under "The hosted
+  database".
+- Node lines 22, 24 and 26. The one JavaScript/TypeScript parser is `@babel/parser` (pure JavaScript, no
+  dependencies, no install script; weighed against the TypeScript compiler, whose size and changing
+  programming interface counted against it, and a native parser, which the production-tree rule excludes).
+  The other runtime dependencies are `pg`, `yaml`, `smol-toml` and `ajv`, each added by the phase that
+  first uses it; runtime dependencies are bundled into the tarball.
+- The repository layout; the agent tiers; the coverage thresholds; the stability policy; the threat
+  model's non-goals.
+- Contributions are signed off with a developer certificate of origin; there is no contributor licence
+  agreement.
+- The guidance checker skips paths this file names for phases not yet built, from a committed list in
+  which every entry names its phase and fails the check once the path exists.
+
+Tech stack (TypeScript confirmed by the owner, 2026-11-25; the details below it on 2026-11-26):
 
 | Approach | For | Against |
 |---|---|---|
@@ -438,11 +456,10 @@ Tech stack (TypeScript confirmed by the owner, 2026-11-25; the details below it 
 
 Details: Node lines 22, 24 and 26 (every line supported upstream, enforced by `engines` and by the binary
 itself). Runtime dependencies: a PostgreSQL driver, a YAML parser, a TOML parser, a JSON Schema validator
-and one JavaScript/TypeScript parser (also used for JSONC) — the choice between the TypeScript compiler in
-syntax-only mode and a lighter parser is a sign-off item, with its size and upcoming API changes weighed;
+and one JavaScript/TypeScript parser (also used for JSONC) — `@babel/parser`, as recorded above;
 argument parsing and colour from Node built-ins. Development only: a PostgreSQL parser distributed without
 an install script, for the query and shim checkers. The published CLI resolves nothing at install time:
-runtime dependencies are bundled into the tarball (*proposed*), so a user's install cannot pick up a newer
+runtime dependencies are bundled into the tarball, so a user's install cannot pick up a newer
 transitive release than the one tested. Layout: `src/` (`cli/`, `collect/`, `codescan/`, `engine/`,
 `model/`, `score/`, `plan/`, `shims/`, `report/`, `index.ts`), `packs/` (the rule pack), `queries/`,
 `data/` (`shims/`, `score/`, `plan/`, `options/`, `platform/`), `schema/`, `fixture/`, `scripts/`,

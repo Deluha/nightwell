@@ -11,10 +11,10 @@ values
   ('00000000-0000-4000-8000-000000000003', 'authenticated', 'authenticated', 'cy@example.com',
     '{"display_name": "Cy Example"}', '2026-01-01 00:00:00+00', '2026-01-01 00:00:00+00');
 
-insert into public.cellars (id, name, created_by, created_at)
+insert into public.cellars (id, name, created_by, created_at, is_public)
 values
-  ('10000000-0000-4000-8000-000000000001', 'Example Cellar One', '00000000-0000-4000-8000-000000000001', '2026-01-02 00:00:00+00'),
-  ('10000000-0000-4000-8000-000000000002', 'Example Cellar Two', '00000000-0000-4000-8000-000000000003', '2026-01-02 00:00:00+00');
+  ('10000000-0000-4000-8000-000000000001', 'Example Cellar One', '00000000-0000-4000-8000-000000000001', '2026-01-02 00:00:00+00', true),
+  ('10000000-0000-4000-8000-000000000002', 'Example Cellar Two', '00000000-0000-4000-8000-000000000003', '2026-01-02 00:00:00+00', false);
 
 insert into public.members (cellar_id, user_id, role)
 values
@@ -38,3 +38,6 @@ values
   (1, '00000000-0000-4000-8000-000000000002', '2026-02-20', 90, 'Example note: balanced.'),
   (4, '00000000-0000-4000-8000-000000000003', '2026-05-09', 85, 'Example note: lively.'),
   (5, '00000000-0000-4000-8000-000000000003', '2026-08-30', 91, 'Example note: sweet.');
+
+-- The materialized view is filled when it is created, before this data exists; refresh it now.
+refresh materialized view public.cellar_stats;

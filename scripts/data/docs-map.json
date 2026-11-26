@@ -22,6 +22,10 @@
     "doc": ".claude/skills/nightwell-development/references/qa-and-ci.md"
   },
   {
+    "area": ["scripts/fixture/**", "fixture/versions.env"],
+    "doc": ".claude/skills/nightwell-development/references/qa-and-ci.md"
+  },
+  {
     "area": [".claude/agents/**"],
     "doc": ".claude/skills/nightwell-development/references/architecture.md"
   },

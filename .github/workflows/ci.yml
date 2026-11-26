@@ -1,4 +1,4 @@
-# The one entry point for required checks: calls the four CI workflows and ends
+# The one entry point for required checks: calls the five CI workflows and ends
 # in the single check to require on the default branch, "CI gate".
 name: ci
 
@@ -31,11 +31,15 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/ci-package.yml
+  fixture:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci-fixture.yml
 
   gate:
     name: CI gate
     if: always()
-    needs: [pre-commit, docs-sync, tests, package]
+    needs: [pre-commit, docs-sync, tests, package, fixture]
     runs-on: ubuntu-latest
     permissions: {}
     steps:

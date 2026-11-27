@@ -69,7 +69,8 @@ The demo project lives in `fixture/`; the CLI project directory is `fixture/supa
 - `npm run fixture:start`, `fixture:reset` and `fixture:stop` run it. `start` takes `--pg 15` and
   `--with-pooler`; `NIGHTWELL_FIXTURE_LATEST=1` runs the newest CLI and images, unpinned.
 - `fixture/` is excluded from lint, format, static analysis and dependency updates (owner, 2026-11-26),
-  but not from the secret scan.
+  but not from the secret scan. Dependency review has no path filter, so it still reviews the fixture's
+  manifests; only its Flutter package is exempt from the licence check (owner, 2026-11-27).
 - Canary credentials live in `fixture/canaries.json` and are allow-listed by exact value in
   `.gitleaks.toml`.
 - Live tests run with `NIGHTWELL_LIVE=1` against a started fixture.

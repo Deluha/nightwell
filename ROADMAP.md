@@ -178,14 +178,14 @@ under `github.com/supabase` (the documentation was read from its source in `supa
 | Edge functions | `supabase/functions/<name>/index.ts`; injected `SUPABASE_URL`, `SUPABASE_DB_URL`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`, `SUPABASE_JWKS`, legacy `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | docs `guides/functions/secrets.mdx` |
 | Gateway | Paths `/rest/v1`, `/auth/v1`, `/storage/v1`, `/realtime/v1`, `/functions/v1`, `/graphql/v1` and others; hosts `<ref>.supabase.co`, pooler hosts; key formats `sb_publishable_…` / `sb_secret_…` beside the legacy JWT keys | `supabase/supabase` `docker/volumes/api/kong.yml`; docs `guides/getting-started/api-keys.mdx` |
 | Other ties | Vault secrets (the root key is held outside the database, so secrets must be read on the source before a move), `pg_cron` jobs calling `net.http_post` to edge functions, auth hooks as PostgreSQL functions granted to `supabase_auth_admin` (declared in config or the dashboard, not in the database), queues (`pgmq`), foreign data wrappers | docs `guides/database/vault.mdx`, `guides/functions/schedule-functions.mdx`, `guides/auth/auth-hooks.mdx`, `guides/queues/api.mdx` |
-| Fixture runtime | `supabase db start` (CLI v3, pinned) starts only the database yet runs the auth, storage and realtime schema migrations; the webhook objects are installed only when `experimental.webhooks.enabled` is set. The CLI supports PostgreSQL 14–17 locally, default 17 | `supabase/cli` `apps/cli/src/command-internal/db-bootstrap/db-setup.ts`, `packages/config/src/experimental.ts`, `packages/config/src/db.ts` |
+| Fixture runtime | `supabase db start` (CLI v3, pinned) starts only the database yet runs the auth, storage and realtime schema migrations; the webhook schema and function (`supabase_functions.http_request`, `supabase_functions.hooks`) ship in the database image; `experimental.webhooks.enabled` installs `pg_net`, which they need (`supabase/cli` `apps/cli/src/command-internal/db-bootstrap/db-setup.ts` at tag v3.4.0, read 2026-11-26). The CLI supports PostgreSQL 14–17 locally, default 17 | `supabase/cli` `apps/cli/src/command-internal/db-bootstrap/db-setup.ts`, `packages/config/src/experimental.ts`, `packages/config/src/db.ts` |
 | Prior art | Supabase's own database linter (`splinter`, behind its advisors) covers security and performance, not lock-in; its API lints read the exposed-schema list from the `pgrst.db_schemas` setting. Supabase's restore-to-self-hosted guide lists what a dump does not carry | `supabase/splinter` `lints/`; docs `guides/self-hosting/restore-from-platform.mdx` |
 | Project config | Since CLI 3.4.0 `supabase init` writes `supabase/config.jsonc`; `config.toml` and `config.json` are still read | docs `guides/local-development/cli/config-formats.mdx` |
 
 **Assumptions not yet verified** (reasoned from general PostgreSQL knowledge). Phase 0 commit 10 checks
 U1, U6, U9 and the hosted half of U8 on the hosted database, and U2–U5 on a local stock PostgreSQL
-container. Deferred: the local half of U8 to Phase 1 commit 1, U7 to Phase 3 commit 1, the shape of a
-dashboard-created webhook to Phase 3 commit 5.
+container. The local half of U8 was observed in Phase 1 commit 1 (below). Deferred: U7 to Phase 3
+commit 1, the shape of a dashboard-created webhook to Phase 3 commit 5.
 
 | # | Assumption | Decides |
 |---|---|---|
@@ -206,13 +206,13 @@ one. Local: `scripts/local-verify/assumptions.sql` on the official `postgres:17`
 
 | # | Result | Method |
 |---|---|---|
-| U1 | **Half verified.** `information_schema` lists only what the caller has privileges on (local: a role with one grant saw one table of several). The `cron.job` half is unverified: `pg_cron` is not installed on the hosted project, and installing it would be a write. On hosted, the read-only role may select every table in the managed schemas, so the comparison there shows nothing | Local, hosted |
+| U1 | **Verified locally; hosted half open.** `information_schema` lists only what the caller has privileges on (local: a role with one grant saw one table of several). `cron.job` is filtered by row-level security to the job's owner (local, Phase 1 commit 5, `pg_cron` 1.6.4 on PostgreSQL 17): the table has row security on, not forced, with one policy, `username = CURRENT_USER`; the job owner `postgres` saw 1 row, and a scratch role with `select` on `cron.job` and `usage` on the schema saw 0. `pg_cron` is not installed on the hosted project, and installing it would be a write, so the hosted comparison stays unverified; on hosted, the read-only role may select every table in the managed schemas, so the comparison there shows nothing | Local, hosted |
 | U2 | **Verified.** Recorded in `pg_depend`: policy expressions, column defaults, views, `BEGIN ATOMIC` functions. Not recorded: string-bodied SQL functions, PL/pgSQL functions, string constants, and nothing transitive. A policy's roles are recorded, but in `pg_shdepend` | Local |
 | U3 | **Verified, with two corrections.** A read-only transaction allows `pg_notify`, advisory locks, `set_config`, a write through `dblink` (which survives the rollback) and a write to an existing temp table; it refuses creating a temp table and writing to an ordinary table. `pg_get_viewdef` leaves a lock until the end of the transaction on the relations the view reads, not on the view; `pg_get_indexdef` leaves none | Local |
 | U4 | **Verified.** The qualifier is omitted when the schema is on `search_path` and kept under `search_path = pg_catalog` | Local |
 | U5 | **Verified.** A superuser, the table owner and a `BYPASSRLS` role are not subject to policies; an ordinary role is; the owner is under `FORCE ROW LEVEL SECURITY` | Local |
 | U6 | **Observed: not readable.** No `pgrst.*` entry exists in `pg_db_role_setting` for any role or the database on the hosted project, so the exposed-schema list cannot be read from there | Hosted |
-| U8 | **Hosted half observed** (one project in use, so an absence may be the owner's choice). Schemas present: `auth`, `storage`, `realtime`, `vault`, `extensions`, `graphql`, `graphql_public`, `pgbouncer`; absent: `supabase_functions`, `supabase_migrations`, `cron`, `net`, `pgmq`, `pgsodium`. Extensions installed: `supabase_vault`, `pgcrypto`, `uuid-ossp`, `pg_stat_statements`; not installed: `pg_graphql`, `pg_net`, `pg_cron`, `pgsodium`, `pgjwt`, `pg_jsonschema`, `wrappers`, `index_advisor`, `pgmq`. The `supabase_realtime` publication exists; the webhook function does not. Platform roles beyond the evidence base: `supabase_etl_admin`, `supabase_privileged_role`, `supabase_read_only_user`, `supabase_replication_admin`, `supabase_realtime_admin`; `postgres` is not a superuser and bypasses row security | Hosted |
+| U8 | **Hosted half observed** (one project in use, so an absence may be the owner's choice). Schemas present: `auth`, `storage`, `realtime`, `vault`, `extensions`, `graphql`, `graphql_public`, `pgbouncer`; absent: `supabase_functions`, `supabase_migrations`, `cron`, `net`, `pgmq`, `pgsodium`. Extensions installed: `supabase_vault`, `pgcrypto`, `uuid-ossp`, `pg_stat_statements`; not installed: `pg_graphql`, `pg_net`, `pg_cron`, `pgsodium`, `pgjwt`, `pg_jsonschema`, `wrappers`, `index_advisor`, `pgmq`. The `supabase_realtime` publication exists; the webhook function does not. Platform roles beyond the evidence base: `supabase_etl_admin`, `supabase_privileged_role`, `supabase_read_only_user`, `supabase_replication_admin`, `supabase_realtime_admin`; `postgres` is not a superuser and bypasses row security. **Local half observed** (Phase 1 commit 1, CLI 3.4.0, `supabase/postgres` 17.12.0.002, empty project, webhooks enabled; the same queries run with `psql` on the throwaway local fixture). Schemas present: `auth`, `storage`, `realtime`, `vault`, `extensions`, `graphql`, `graphql_public`, `pgbouncer`, `net`, `supabase_functions`; absent: `supabase_migrations`, `cron`, `pgmq`, `pgsodium`. Extensions installed: `pg_net`, `supabase_vault`, `pgcrypto`, `uuid-ossp`, `pg_stat_statements`, and no others besides `plpgsql`; not installed: `pg_graphql`, `pg_cron`, `pgsodium`, `pgjwt`, `pg_jsonschema`, `wrappers`, `index_advisor`, `pgmq`. The `supabase_realtime` publication and `supabase_functions.http_request` exist. Platform roles on the list include all five the hosted project has beyond the evidence base, and `supabase_functions_admin`; `postgres` is not a superuser and bypasses row security; `supabase_admin` is the superuser. Against the hosted half: both have the `pgbouncer` schema, the same four installed extensions, the publication and the same platform roles. They differ only in what webhooks bring: local has the `supabase_functions` and `net` schemas, `pg_net` and the webhook function, which the hosted project does not (local has `pg_net` because the fixture enables webhooks) | Hosted, local |
 | U9 | **Unverified.** The session had no pooler connection; Phase 3 commit 1 resolves it on the throwaway project | — |
 | — | **Also observed:** the management interface's read-only endpoint runs as `supabase_read_only_user`, which bypasses row security and has `default_transaction_read_only = on` | Hosted |
 
@@ -225,7 +225,7 @@ package yet, because the package linter rejects an export that matches no file �
 yet checked by a hook or CI.
 
 What this changes for later phases (proposed to the owner; no phase text is altered here): U1's `cron.job`
-half moves to Phase 1 commit 5, where the fixture has `pg_cron`; for U6, Phase 2 commit 7 should expect no
+half moves to Phase 1 commit 5, where the fixture has `pg_cron` (confirmed by the owner, 2026-11-26); for U6, Phase 2 commit 7 should expect no
 database setting on a hosted project and fall to `--exposed-schemas` or the default labelled "assumed"; for
 U3, the lock budget of Phases 2 and 3 concerns the relations a deparsed view reads, and R1's preamble need
 not guard against temp-table creation.
@@ -234,8 +234,8 @@ not guard against temp-table creation.
 
 | Phase | Status | Pull request |
 |---|---|---|
-| 0 — Foundations | In review | [#2](https://github.com/Deluha/project-nightwell/pull/2) |
-| 1 — Skorpyron: the demo fixture | Not started | |
+| 0 — Foundations | Merged | [#2](https://github.com/Deluha/nightwell/pull/2) |
+| 1 — Skorpyron: the demo fixture | In review | [#5](https://github.com/Deluha/nightwell/pull/5) |
 | 2 — Trilliax: database scan, terminal and JSON | Not started | |
 | 3 — Trilliax: database scan hardening | Not started | |
 | 4 — Tel'arn: application code scan | Not started | |
@@ -525,6 +525,27 @@ updates, dependency review, static analysis, lint and type-check (an ask-first e
 Rules for the fixture: all data is synthetic; no real key, token or project reference appears; each
 planted feature is the documented pattern, with its source in the manifest; SQL adapted from a Supabase
 repository carries a header naming the source and its licence.
+
+Confirmed by the owner on 2026-11-26 (the Phase 1 sign-off):
+
+- The demo "Cellarbook" as described above.
+- The feature inventory of commits 2–9 unchanged, with the commit-5 extension classes: Supabase-maintained
+  (`pg_graphql`, `pg_net`, `supabase_vault`, `pg_jsonschema`, `wrappers`, `index_advisor`); third-party
+  open source (`vector`); shipping with PostgreSQL, as controls (`pgcrypto`, `uuid-ossp`,
+  `pg_stat_statements`, `postgres_fdw`); queue (`pgmq`); PostgreSQL 15 only, in the version-conditional
+  migration (`pgjwt` and `plv8`). The `cron.job` half of U1 is checked in commit 5.
+- Webhooks stay enabled in the config: the setting installs `pg_net` (corrected in the evidence base).
+- The manifest format: `manifest_version`; entries with `id`, `area`, `kind` (`tie` or `control`),
+  `location` (`database`, or `file` and `symbol`), `sources` (url and read date), `expected_rules`,
+  `pending`, and the oracle mode (`load-fails`, `probe-differs`, `not-in-dump` or `probe-same`) with its
+  `probe`.
+- The six feature areas are defined once in `src/model/areas.ts` from commit 10 and imported by the
+  manifest test.
+- The pins live in `fixture/versions.env`, are pulled by digest and re-tagged locally, with the
+  `NIGHTWELL_FIXTURE_LATEST=1` override.
+- `fixture/` is excluded from dependency updates, static analysis, lint, format and type-check, but not
+  from the secret scan; canaries are allow-listed by exact value.
+- `fixture/README.md` is added to the permanent docs (in commit 12).
 
 ### Phase 2 — Trilliax: database scan, terminal and JSON
 

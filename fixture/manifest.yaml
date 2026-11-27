@@ -1,0 +1,2154 @@
+# The planted-feature manifest of the Cellarbook fixture: one entry per `planted:` marker under fixture/.
+# The oracle (tests/fixture/oracle.live.test.ts) and the rule checker read it. It is hand-kept (nothing regenerates it) and
+# tests/fixture/manifest.test.ts holds it to the fixture; the live test holds database entries to the
+# running database. Fields: id (the marker id), area (a feature area), kind (tie or control), description,
+# location (database objects, or file and symbol), sources (accepted hosts, with the date read),
+# expected_rules (rule ids, filled as rules arrive), pending, and for database entries the oracle mode.
+# An entry whose oracle mode is load-fails also lists fails_on: the platform schema and role names its own
+# failure must name. fails_on is an optional field added within manifest_version 1: no other mode carries
+# it, and the offline test requires it on every load-fails entry.
+manifest_version: 1
+entries:
+  - id: db.cellars-auth-uid-default
+    area: auth
+    kind: tie
+    description: "Column default on cellars.created_by calls auth.uid(); the column references auth.users"
+    location:
+      database:
+        - { object: column-default, schema: public, table: cellars, name: created_by }
+        - { object: constraint, schema: public, table: cellars, name: cellars_created_by_fkey }
+    sources:
+      - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    note: "Unverified: the cited pages show auth.uid() only in policies and in its definition, not as a column default."
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [auth] }
+  - id: db.members-auth-users-fk
+    area: auth
+    kind: tie
+    description: "Foreign key from members.user_id to auth.users with on delete cascade"
+    location:
+      database:
+        - { object: constraint, schema: public, table: members, name: members_user_id_fkey }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [auth] }
+  - id: db.profiles-auth-users-fk
+    area: auth
+    kind: tie
+    description: "Foreign key from profiles.id to auth.users with on delete cascade; the same reference from tasting_notes.author_id"
+    location:
+      database:
+        - { object: constraint, schema: public, table: profiles, name: profiles_id_fkey }
+        - { object: constraint, schema: public, table: tasting_notes, name: tasting_notes_author_id_fkey }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [auth] }
+  - id: db.profiles-new-user-trigger
+    area: auth
+    kind: tie
+    description: "Security-definer function handle_new_user and a trigger on auth.users that inserts the profile row"
+    location:
+      database:
+        - { object: trigger, schema: auth, table: users, name: on_auth_user_created }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/managing-user-data.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.bottles-quantity-check
+    area: auth
+    kind: control
+    description: "Standard check constraint on bottles.quantity with no platform dependency"
+    location:
+      database:
+        - { object: constraint, schema: public, table: bottles, name: bottles_quantity_check }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from public.bottles where quantity >= 0" }
+  - id: db.bottles-auth-uid-default
+    area: auth
+    kind: tie
+    description: "Column default on bottles.added_by calls auth.uid()"
+    location:
+      database:
+        - { object: column-default, schema: public, table: bottles, name: added_by }
+    sources:
+      - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    note: "Unverified: the cited pages show auth.uid() only in policies and in its definition, not as a column default."
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [auth] }
+  - id: db.profiles-auth-uid-check
+    area: auth
+    kind: tie
+    description: "Check constraint profiles_id_self calls auth.uid(); it passes when no JWT is present; declared NOT VALID so it is a statement of its own in a dump"
+    location:
+      database:
+        - { object: constraint, schema: public, table: profiles, name: profiles_id_self }
+    sources:
+      - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    note: "Unverified: the cited pages show auth.uid() only in policies and in its definition, not as a check constraint."
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [auth] }
+  - id: db.bottles-generated-column
+    area: database
+    kind: control
+    description: "Generated column with an immutable expression"
+    location:
+      database:
+        - { object: column, schema: public, table: bottles, name: vintage_decade }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select id, vintage_decade from public.bottles order by id" }
+  - id: db.tasting-notes-partitioned
+    area: database
+    kind: control
+    description: "Table partitioned by range on tasted_on, with two partitions; standard PostgreSQL"
+    location:
+      database:
+        - { object: table, schema: public, name: tasting_notes }
+        - { object: table, schema: public, name: tasting_notes_2025 }
+        - { object: table, schema: public, name: tasting_notes_2026 }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/partitions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from public.tasting_notes" }
+  - id: db.fk-indexes
+    area: database
+    kind: control
+    description: "Plain indexes on foreign key columns"
+    location:
+      database:
+        - { object: index, schema: public, name: cellars_created_by_idx }
+        - { object: index, schema: public, name: members_user_id_idx }
+        - { object: index, schema: public, name: bottles_cellar_id_idx }
+        - { object: index, schema: public, name: tasting_notes_bottle_id_idx }
+        - { object: index, schema: public, name: tasting_notes_author_id_idx }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select indexname from pg_indexes where schemaname = 'public' and indexname in ('cellars_created_by_idx', 'members_user_id_idx', 'bottles_cellar_id_idx', 'tasting_notes_bottle_id_idx', 'tasting_notes_author_id_idx') order by 1" }
+  - id: db.cellars-is-public-column
+    area: database
+    kind: control
+    description: "Plain boolean column added with alter table"
+    location:
+      database:
+        - { object: column, schema: public, table: cellars, name: is_public }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) filter (where is_public) from public.cellars" }
+  - id: db.rls-enabled
+    area: database
+    kind: control
+    description: "Row level security enabled on the five core tables and the two tasting-note partitions; standard PostgreSQL"
+    location:
+      database:
+        - { object: rls, schema: public, table: cellars }
+        - { object: rls, schema: public, table: members }
+        - { object: rls, schema: public, table: profiles }
+        - { object: rls, schema: public, table: bottles }
+        - { object: rls, schema: public, table: tasting_notes }
+        - { object: rls, schema: public, table: tasting_notes_2025 }
+        - { object: rls, schema: public, table: tasting_notes_2026 }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select relname, relrowsecurity from pg_class where relnamespace = 'public'::regnamespace and relname in ('cellars', 'members', 'profiles', 'bottles', 'tasting_notes') order by 1" }
+  - id: db.default-privileges-tables
+    area: rest
+    kind: tie
+    description: "Default privileges in schema public grant select on tables to authenticated"
+    location:
+      database:
+        - { object: default-privilege, schema: public, name: tables, role: authenticated, privilege: select }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated] }
+  - id: db.default-privileges-functions
+    area: rest
+    kind: tie
+    description: "Default privileges in schema public grant execute on functions to authenticated"
+    location:
+      database:
+        - { object: default-privilege, schema: public, name: functions, role: authenticated, privilege: execute }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated] }
+  - id: db.grants-built-in-roles
+    area: rest
+    kind: tie
+    description: "Table grants to anon, authenticated and service_role on the core tables"
+    location:
+      database:
+        - { object: grant, on: table, schema: public, name: cellars, role: anon, privilege: select }
+        - { object: grant, on: table, schema: public, name: cellars, role: authenticated, privilege: select }
+        - { object: grant, on: table, schema: public, name: bottles, role: authenticated, privilege: delete }
+        - { object: grant, on: table, schema: public, name: profiles, role: authenticated, privilege: update }
+        - { object: grant, on: table, schema: public, name: members, role: authenticated, privilege: select }
+        - { object: grant, on: table, schema: public, name: tasting_notes, role: authenticated, privilege: select }
+        - { object: grant, on: table, schema: public, name: tasting_notes, role: service_role, privilege: select }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [anon, authenticated, service_role] }
+  - id: db.private-schema-definer-helper
+    area: auth
+    kind: tie
+    description: "Security-definer function is_cellar_member in schema app_private calls auth.uid(); grants name authenticated"
+    location:
+      database:
+        - { object: schema, name: app_private }
+        - { object: function, schema: app_private, name: is_cellar_member, args: "cellar uuid" }
+        - { object: grant, on: schema, schema: app_private, name: app_private, role: authenticated, privilege: usage }
+        - { object: grant, on: function, schema: app_private, name: is_cellar_member, role: authenticated, privilege: execute, args: "cellar uuid" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated] }
+  - id: db.policy-uid-bare
+    area: auth
+    kind: tie
+    description: "Policy on members calls auth.uid() directly"
+    location:
+      database:
+        - { object: policy, schema: public, table: members, name: members_select_own }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated, auth] }
+  - id: db.policy-request-setting
+    area: auth
+    kind: tie
+    description: "Policy on members reads current_setting('request.jwt.claims') directly"
+    location:
+      database:
+        - { object: policy, schema: public, table: members, name: members_select_own_setting }
+    sources:
+      - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated] }
+  - id: db.policy-uid-select-wrapped
+    area: auth
+    kind: tie
+    description: "Policies on profiles and cellars use the (select auth.uid()) form"
+    location:
+      database:
+        - { object: policy, schema: public, table: cellars, name: cellars_insert_creator }
+        - { object: policy, schema: public, table: profiles, name: profiles_select_own }
+        - { object: policy, schema: public, table: profiles, name: profiles_update_own }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated, auth] }
+  - id: db.policy-via-definer-function
+    area: auth
+    kind: tie
+    description: "Policies call app_private.is_cellar_member, which calls auth.uid()"
+    location:
+      database:
+        - { object: policy, schema: public, table: cellars, name: cellars_select_member }
+        - { object: policy, schema: public, table: bottles, name: bottles_select_member }
+        - { object: policy, schema: public, table: bottles, name: bottles_update_member }
+        - { object: policy, schema: public, table: tasting_notes, name: tasting_notes_select_member }
+        - { object: policy, schema: public, table: shelves, name: shelves_select_member }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated] }
+  - id: db.policy-jwt-claim
+    area: auth
+    kind: tie
+    description: "Policy on profiles reads an app_metadata claim through auth.jwt()"
+    location:
+      database:
+        - { object: policy, schema: public, table: profiles, name: profiles_admin_all }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/custom-claims-and-role-based-access-control-rbac.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated, auth] }
+  - id: db.policy-auth-role
+    area: auth
+    kind: tie
+    description: "Policy on profiles calls auth.role()"
+    location:
+      database:
+        - { object: policy, schema: public, table: profiles, name: profiles_insert_self }
+    sources:
+      - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
+    note: "The current docs read do not show auth.role(); the source is the helper definition, whose comment marks it deprecated."
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated, auth] }
+  - id: db.policy-auth-email
+    area: auth
+    kind: tie
+    description: "Policy on tasting_notes calls auth.email()"
+    location:
+      database:
+        - { object: policy, schema: public, table: tasting_notes, name: tasting_notes_insert_author }
+    sources:
+      - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
+    note: "The current docs read do not show auth.email(); the source is the helper definition, whose comment marks it deprecated."
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated, auth] }
+  - id: db.policy-to-anon
+    area: rest
+    kind: tie
+    description: "Policy on cellars names the anon role"
+    location:
+      database:
+        - { object: policy, schema: public, table: cellars, name: cellars_select_public }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [anon] }
+  - id: db.policy-standard-only
+    area: auth
+    kind: control
+    description: "Restrictive policy on tasting_notes using only standard PostgreSQL"
+    location:
+      database:
+        - { object: policy, schema: public, table: tasting_notes, name: tasting_notes_valid_score }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select polname, polpermissive, pg_get_expr(polqual, polrelid) from pg_policy where polrelid = 'public.tasting_notes'::regclass and polname = 'tasting_notes_valid_score'" }
+  - id: db.view-security-invoker
+    area: auth
+    kind: tie
+    description: "View my_bottles with security_invoker calls auth.uid()"
+    location:
+      database:
+        - { object: view, schema: public, name: my_bottles }
+        - { object: grant, on: table, schema: public, name: my_bottles, role: authenticated, privilege: select }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [auth, authenticated] }
+  - id: db.matview-helper
+    area: auth
+    kind: tie
+    description: "Materialized view cellar_stats calls auth.role()"
+    location:
+      database:
+        - { object: materialized-view, schema: public, name: cellar_stats }
+    sources:
+      - { url: "https://github.com/supabase/auth/blob/0725a1d90cd9fbbb2a26f3baf18afd400a436f66/migrations/20220224000811_update_auth_functions.up.sql", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [auth] }
+  - id: db.function-plpgsql-helpers
+    area: auth
+    kind: tie
+    description: "PL/pgSQL function add_bottle calls auth.uid() and auth.role()"
+    location:
+      database:
+        - { object: function, schema: public, name: add_bottle, args: "cellar uuid, bottle_name text, bottle_vintage integer" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-differs, probe: "select public.add_bottle('00000000-0000-4000-8000-0000000000aa', 'Probe', 2000)" }
+  - id: db.function-dynamic-sql
+    area: auth
+    kind: tie
+    description: "Function count_rows runs dynamic SQL, one statement built with format() and one string calling auth.uid()"
+    location:
+      database:
+        - { object: function, schema: public, name: count_rows, args: "target text" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-differs, probe: "select public.count_rows('grape_varieties')" }
+  - id: db.function-plain-sql
+    area: auth
+    kind: control
+    description: "Plain SQL function with no platform reference"
+    location:
+      database:
+        - { object: function, schema: public, name: bottle_age, args: "vintage integer, in_year integer" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select public.bottle_age(1990, 2025)" }
+  - id: db.storage-bucket-private
+    area: storage
+    kind: tie
+    description: "Private bucket labels inserted into storage.buckets"
+    location:
+      database:
+        - { object: bucket, name: labels }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/storage/buckets/creating-buckets.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.storage-bucket-public
+    area: storage
+    kind: tie
+    description: "Public bucket cellar-photos inserted into storage.buckets"
+    location:
+      database:
+        - { object: bucket, name: cellar-photos }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/storage/buckets/creating-buckets.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.storage-policy-folder-per-user
+    area: storage
+    kind: tie
+    description: "Policies on storage.objects compare storage.foldername(name) with the caller's uid"
+    location:
+      database:
+        - { object: policy, schema: storage, table: objects, name: labels_insert_own_folder }
+        - { object: policy, schema: storage, table: objects, name: labels_select_own_folder }
+        - { object: policy, schema: storage, table: objects, name: labels_update_own_folder }
+        - { object: policy, schema: storage, table: objects, name: labels_delete_own_folder }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/storage/security/access-control.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/storage/schema/helper-functions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.storage-policy-extension
+    area: storage
+    kind: tie
+    description: "Restrictive policy on storage.objects calls storage.extension(name)"
+    location:
+      database:
+        - { object: policy, schema: storage, table: objects, name: labels_images_only }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/storage/schema/helper-functions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.storage-policy-filename
+    area: storage
+    kind: tie
+    description: "Policy on storage.objects calls storage.filename(name) and names public"
+    location:
+      database:
+        - { object: policy, schema: storage, table: objects, name: labels_shared_download }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/storage/schema/helper-functions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.storage-policy-public-read-anon
+    area: storage
+    kind: tie
+    description: "Policy on storage.objects lets anon select from the cellar-photos bucket"
+    location:
+      database:
+        - { object: policy, schema: storage, table: objects, name: cellar_photos_public_read }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/storage/buckets/creating-buckets.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/storage/security/access-control.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.realtime-publication-tables
+    area: realtime
+    kind: tie
+    description: "Tables tasting_notes and bottles added to the supabase_realtime publication"
+    location:
+      database:
+        - { object: publication-table, name: supabase_realtime, schema: public, table: tasting_notes }
+        - { object: publication-table, name: supabase_realtime, schema: public, table: bottles }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/postgres-changes.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.replica-identity-full
+    area: realtime
+    kind: control
+    description: "Replica identity full on bottles; standard PostgreSQL"
+    location:
+      database:
+        - { object: replica-identity, schema: public, table: bottles, setting: full }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/postgres-changes.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select relreplident from pg_class where relnamespace = 'public'::regnamespace and relname = 'bottles'" }
+  - id: db.broadcast-changes-trigger
+    area: realtime
+    kind: tie
+    description: "Trigger function broadcast_tasting_room calls realtime.broadcast_changes; trigger on bottles"
+    location:
+      database:
+        - { object: function, schema: public, name: broadcast_tasting_room, args: "" }
+        - { object: trigger, schema: public, table: bottles, name: broadcast_tasting_room }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/subscribing-to-database-changes.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/broadcast.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [realtime] }
+  - id: db.realtime-send-call
+    area: realtime
+    kind: tie
+    description: "Function announce_pour calls realtime.send"
+    location:
+      database:
+        - { object: function, schema: public, name: announce_pour, args: "cellar uuid" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/broadcast.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-differs, probe: "select set_config('request.jwt.claims', '{\"sub\":\"00000000-0000-4000-8000-000000000001\"}', false); select public.announce_pour('10000000-0000-4000-8000-000000000001')" }
+  - id: db.topic-parser
+    area: realtime
+    kind: control
+    description: "Plain SQL function app_private.cellar_from_topic with no platform reference"
+    location:
+      database:
+        - { object: function, schema: app_private, name: cellar_from_topic, args: "topic text" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select app_private.cellar_from_topic('cellar:00000000-0000-0000-0000-000000000000')" }
+  - id: db.realtime-policy-broadcast-receive
+    area: realtime
+    kind: tie
+    description: "Policy on realtime.messages uses realtime.topic() and the extension column"
+    location:
+      database:
+        - { object: policy, schema: realtime, table: messages, name: cellar_members_receive_broadcast }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/authorization.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.realtime-policy-presence-send
+    area: realtime
+    kind: tie
+    description: "Policy on realtime.messages for presence uses realtime.topic()"
+    location:
+      database:
+        - { object: policy, schema: realtime, table: messages, name: cellar_members_track_presence }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/realtime/authorization.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.ext-pg-graphql
+    area: database
+    kind: tie
+    description: "Extension pg_graphql, Supabase-maintained"
+    location:
+      database:
+        - { object: extension, name: pg_graphql, schema: graphql }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/pg_graphql.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.ext-vector
+    area: database
+    kind: tie
+    description: "Extension vector, third-party open source, in schema extensions"
+    location:
+      database:
+        - { object: extension, name: vector, schema: extensions }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/pgvector.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.ext-pg-jsonschema
+    area: database
+    kind: tie
+    description: "Extension pg_jsonschema, Supabase-maintained, in schema extensions"
+    location:
+      database:
+        - { object: extension, name: pg_jsonschema, schema: extensions }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/pg_jsonschema.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.ext-wrappers
+    area: database
+    kind: tie
+    description: "Extension wrappers, the Supabase-maintained foreign data wrapper framework, in schema extensions"
+    location:
+      database:
+        - { object: extension, name: wrappers, schema: extensions }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions.mdx", read: 2026-11-26 }
+    note: "Unverified: the foreign data wrapper overview read does not show the create extension statement; the extensions schema is chosen from the extensions guide."
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.ext-index-advisor
+    area: database
+    kind: tie
+    description: "Extension index_advisor, Supabase-maintained; cascade also creates hypopg"
+    location:
+      database:
+        - { object: extension, name: index_advisor, schema: extensions }
+        - { object: extension, name: hypopg, schema: extensions }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/index_advisor.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.ext-pg-cron
+    area: database
+    kind: tie
+    description: "Extension pg_cron, the job scheduler"
+    location:
+      database:
+        - { object: extension, name: pg_cron, schema: pg_catalog }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/pg_cron.mdx", read: 2026-11-26 }
+    note: "Unverified: the pg_cron page read only links to the Cron docs, which do not show the create statement."
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.ext-pgmq
+    area: database
+    kind: tie
+    description: "Extension pgmq, the queue extension, with its own schema pgmq"
+    location:
+      database:
+        - { object: extension, name: pgmq, schema: pgmq }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/queues/pgmq.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.ext-uuid-ossp
+    area: database
+    kind: control
+    description: "Extension uuid-ossp, which ships with PostgreSQL"
+    location:
+      database:
+        - { object: extension, name: uuid-ossp, schema: extensions }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/uuid-ossp.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.ext-pgcrypto
+    area: database
+    kind: control
+    description: "Extension pgcrypto, which ships with PostgreSQL"
+    location:
+      database:
+        - { object: extension, name: pgcrypto, schema: extensions }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.ext-postgres-fdw
+    area: database
+    kind: control
+    description: "Extension postgres_fdw, which ships with PostgreSQL"
+    location:
+      database:
+        - { object: extension, name: postgres_fdw, schema: extensions }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/postgres_fdw.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.extensions-qualified-default
+    area: database
+    kind: tie
+    description: "Table shelves: column default calls extensions.uuid_generate_v4(); check constraint calls extensions.jsonb_matches_schema()"
+    location:
+      database:
+        - { object: table, schema: public, name: shelves }
+        - { object: column-default, schema: public, table: shelves, name: id }
+        - { object: constraint, schema: public, table: shelves, name: shelves_layout_check }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/uuid-ossp.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/pg_jsonschema.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [extensions] }
+  - id: db.vector-column
+    area: database
+    kind: tie
+    description: "Column bottle_embeddings.flavour_embedding has type extensions.vector(3)"
+    location:
+      database:
+        - { object: column, schema: public, table: bottle_embeddings, name: flavour_embedding }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/pgvector.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [extensions] }
+  - id: db.function-pgcrypto-mixed
+    area: database
+    kind: tie
+    description: "Function new_share_code calls gen_random_bytes qualified with the extensions schema, next to the core gen_random_uuid"
+    location:
+      database:
+        - { object: function, schema: public, name: new_share_code, args: "" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-differs, probe: "select public.new_share_code() is not null" }
+  - id: db.webhook-trigger
+    area: edge-functions
+    kind: tie
+    description: "Trigger new_bottle_webhook on bottles executes supabase_functions.http_request"
+    location:
+      database:
+        - { object: trigger, schema: public, table: bottles, name: new_bottle_webhook }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/webhooks.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [supabase_functions] }
+  - id: db.vault-secret
+    area: database
+    kind: tie
+    description: "Vault secret restock_token created with vault.create_secret"
+    location:
+      database:
+        - { object: vault-secret, name: restock_token }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/vault.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.cron-job-http-post
+    area: edge-functions
+    kind: tie
+    description: "pg_cron job nightly-restock calls net.http_post with a key read from vault.decrypted_secrets"
+    location:
+      database:
+        - { object: cron-job, name: nightly-restock }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/schedule-functions.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/cron/quickstart.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.pgmq-queue
+    area: database
+    kind: tie
+    description: "Queue restock_requests created with pgmq.create; function request_restock sends to it with pgmq.send"
+    location:
+      database:
+        - { object: queue, name: restock_requests }
+        - { object: function, schema: public, name: request_restock, args: "bottle bigint" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/queues/pgmq.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-differs, probe: "select public.request_restock(1)" }
+  - id: db.foreign-server-postgres-fdw
+    area: database
+    kind: control
+    description: "Foreign server cellar_archive on postgres_fdw, a user mapping and a foreign table; standard PostgreSQL"
+    location:
+      database:
+        - { object: foreign-server, name: cellar_archive }
+        - { object: user-mapping, name: cellar_archive, role: postgres }
+        - { object: foreign-table, schema: public, name: archived_bottles }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/postgres_fdw.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from pg_foreign_table f join pg_class c on c.oid = f.ftrelid where c.relnamespace = 'public'::regnamespace and c.relname = 'archived_bottles'" }
+  - id: db.auth-hook-custom-access-token
+    area: auth
+    kind: tie
+    description: "Function custom_access_token_hook, the custom access token hook; grants to supabase_auth_admin"
+    location:
+      database:
+        - { object: function, schema: public, name: custom_access_token_hook, args: "event jsonb" }
+        - { object: grant, on: function, schema: public, name: custom_access_token_hook, role: supabase_auth_admin, privilege: execute, args: "event jsonb" }
+        - { object: grant, on: table, schema: public, name: members, role: supabase_auth_admin, privilege: select }
+        - { object: policy, schema: public, table: members, name: members_select_auth_admin }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/auth-hooks/custom-access-token-hook.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/auth/auth-hooks.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [supabase_auth_admin] }
+  - id: db.rpc-search-bottles
+    area: rest
+    kind: tie
+    description: "Security-invoker function search_bottles with execute granted to authenticated"
+    location:
+      database:
+        - { object: function, schema: public, name: search_bottles, args: "q text" }
+        - { object: grant, on: function, schema: public, name: search_bottles, role: authenticated, privilege: execute, args: "q text" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated] }
+  - id: db.rpc-cellar-summary
+    area: rest
+    kind: tie
+    description: "Security-definer function cellar_summary with an empty search_path and execute granted to authenticated"
+    location:
+      database:
+        - { object: function, schema: public, name: cellar_summary, args: "cellar uuid" }
+        - { object: grant, on: function, schema: public, name: cellar_summary, role: authenticated, privilege: execute, args: "cellar uuid" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/functions.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated] }
+  - id: db.rpc-anon-execute
+    area: rest
+    kind: tie
+    description: "Function public_cellar_count with execute granted to anon"
+    location:
+      database:
+        - { object: function, schema: public, name: public_cellar_count, args: "" }
+        - { object: grant, on: function, schema: public, name: public_cellar_count, role: anon, privilege: execute, args: "" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [anon] }
+  - id: db.pgrst-pre-request
+    area: rest
+    kind: tie
+    description: "Role setting pgrst.db_pre_request on authenticator names function check_request"
+    location:
+      database:
+        - { object: role-setting, role: authenticator, setting: "pgrst.db_pre_request" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.pg15-only-pgjwt-plv8
+    area: database
+    kind: tie
+    description: "Extensions pgjwt and plv8 and two functions that use them, created only below PostgreSQL 16"
+    location:
+      database:
+        - { object: extension, name: pgjwt, schema: extensions }
+        - { object: extension, name: plv8 }
+        - { object: function, schema: public, name: sign_share_link, args: "cellar uuid" }
+        - { object: function, schema: public, name: slugify, args: "input text" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/pgjwt.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/plv8.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    postgres_major: 15
+    oracle: { mode: not-in-dump }
+  - id: db.control-portable-table
+    area: database
+    kind: control
+    description: "Table grape_varieties with standard SQL only: a check constraint, an index and row level security"
+    location:
+      database:
+        - { object: table, schema: public, name: grape_varieties }
+        - { object: constraint, schema: public, table: grape_varieties, name: grape_varieties_colour_check }
+        - { object: index, schema: public, name: grape_varieties_name_idx }
+        - { object: rls, schema: public, table: grape_varieties }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from public.grape_varieties" }
+  - id: db.control-comment-mentions-helper
+    area: auth
+    kind: control
+    description: "Comment on grape_varieties that names auth.uid() as text"
+    location:
+      database:
+        - { object: comment, schema: public, table: grape_varieties }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select obj_description(c.oid, 'pg_class') from pg_class c where c.relnamespace = 'public'::regnamespace and c.relname = 'grape_varieties'" }
+  - id: db.control-function-returns-helper-text
+    area: auth
+    kind: control
+    description: "Function helper_name_text returns the string 'auth.uid()'"
+    location:
+      database:
+        - { object: function, schema: public, name: helper_name_text, args: "" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select public.helper_name_text()" }
+  - id: db.nearmiss-schema-prefix
+    area: auth
+    kind: control
+    description: "User schema auth_audit, whose name starts like auth, with a table"
+    location:
+      database:
+        - { object: schema, name: auth_audit }
+        - { object: table, schema: auth_audit, name: log_entries }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from auth_audit.log_entries" }
+  - id: db.nearmiss-table-objects
+    area: storage
+    kind: control
+    description: "User table objects in schema auth_audit"
+    location:
+      database:
+        - { object: table, schema: auth_audit, name: objects }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from auth_audit.objects" }
+  - id: db.nearmiss-role-name-in-text
+    area: rest
+    kind: control
+    description: "Function reader_label returns the string 'authenticated_reader'; no such role exists"
+    location:
+      database:
+        - { object: function, schema: public, name: reader_label, args: "" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select public.reader_label()" }
+  - id: db.nearmiss-publication
+    area: realtime
+    kind: control
+    description: "User publication cellar_exports on the user table grape_varieties"
+    location:
+      database:
+        - { object: publication, name: cellar_exports }
+        - { object: publication-table, name: cellar_exports, schema: public, table: grape_varieties }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.nearmiss-http-request-trigger
+    area: edge-functions
+    kind: control
+    description: "Trigger on grape_varieties calls the user function public.http_request"
+    location:
+      database:
+        - { object: function, schema: public, name: http_request, args: "" }
+        - { object: trigger, schema: public, table: grape_varieties, name: grape_varieties_http_request }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select tgname from pg_trigger where tgrelid = 'public.grape_varieties'::regclass and tgname = 'grape_varieties_http_request'" }
+  - id: db.nearmiss-realtime-send-name
+    area: realtime
+    kind: control
+    description: "Function app_private.realtime_send, a user function named like the platform's realtime.send"
+    location:
+      database:
+        - { object: function, schema: app_private, name: realtime_send, args: "payload jsonb" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select proname from pg_proc where pronamespace = 'app_private'::regnamespace and proname = 'realtime_send'" }
+  - id: db.nearmiss-private-function-no-grants
+    area: rest
+    kind: control
+    description: "Function app_private.ungranted_helper with execute revoked from public, anon and authenticated"
+    location:
+      database:
+        - { object: function, schema: app_private, name: ungranted_helper, args: "" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select app_private.ungranted_helper()" }
+  - id: db.canary-webhook-headers-and-path
+    area: edge-functions
+    kind: tie
+    description: "Trigger grape_webhook executes supabase_functions.http_request with canary values in a header and the URL path"
+    location:
+      database:
+        - { object: trigger, schema: public, table: grape_varieties, name: grape_webhook }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/webhooks.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [supabase_functions] }
+  - id: db.canary-cron-command
+    area: edge-functions
+    kind: tie
+    description: "pg_cron job weekly-grape-sync calls net.http_post with a canary value in an apikey header"
+    location:
+      database:
+        - { object: cron-job, name: weekly-grape-sync }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/schedule-functions.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.canary-role-setting
+    area: rest
+    kind: tie
+    description: "Role setting pgrst.cellar_partner_key on authenticated holds a canary value"
+    location:
+      database:
+        - { object: role-setting, role: authenticated, setting: "pgrst.cellar_partner_key" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.canary-user-mapping-option
+    area: database
+    kind: tie
+    description: "User mapping for authenticated on server cellar_archive holds a canary password option"
+    location:
+      database:
+        - { object: user-mapping, name: cellar_archive, role: authenticated }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/postgres_fdw.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.canary-server-option
+    area: database
+    kind: control
+    description: "Foreign server cellar_archive holds a canary application_name option"
+    location:
+      database:
+        - { object: foreign-server, name: cellar_archive }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/extensions/postgres_fdw.mdx", read: 2026-11-26 }
+    note: "Unverified: the page read shows server options only as `alter server ... options (...)` for fetch_size, batch_size and extensions, not application_name; that postgres_fdw takes application_name as a server option rests on the PostgreSQL manual, which could not be read. The fixture's PostgreSQL 15 and 17 accept it."
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: db.canary-policy-literal
+    area: rest
+    kind: tie
+    description: "Policy on grape_varieties compares a request header with a canary literal and names authenticated"
+    location:
+      database:
+        - { object: policy, schema: public, table: grape_varieties, name: grape_varieties_partner_header }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/api/securing-your-api.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: load-fails, fails_on: [authenticated] }
+  - id: db.canary-comment
+    area: database
+    kind: control
+    description: "Comment on column grape_varieties.name holds canary values"
+    location:
+      database:
+        - { object: comment, schema: public, table: grape_varieties, column: name }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select col_description(a.attrelid, a.attnum) is not null from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid where c.relnamespace = 'public'::regnamespace and c.relname = 'grape_varieties' and a.attname = 'name'" }
+  - id: db.canary-column-default
+    area: database
+    kind: control
+    description: "Column default on grape_varieties.legacy_token holds a canary value"
+    location:
+      database:
+        - { object: column-default, schema: public, table: grape_varieties, name: legacy_token }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from public.grape_varieties" }
+  - id: db.canary-view-literal
+    area: database
+    kind: control
+    description: "View partner_feed with security_invoker returns a canary literal as a column"
+    location:
+      database:
+        - { object: view, schema: public, name: partner_feed }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/postgres/row-level-security.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from public.partner_feed" }
+  - id: db.hostile-table-markup
+    area: database
+    kind: control
+    description: "Table named with markup; columns named with a CI annotation, a terminal escape and a double quote"
+    location:
+      database:
+        - { object: table, schema: public, name: "<script>alert(1)</script>" }
+        - { object: column, schema: public, table: "<script>alert(1)</script>", name: "::error file=x::nightwell" }
+        - { object: column, schema: public, table: "<script>alert(1)</script>", name: "\e[31mred" }
+        - { object: column, schema: public, table: "<script>alert(1)</script>", name: "say \"hi\"" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from pg_class where relnamespace = 'public'::regnamespace and relname = '<script>alert(1)</script>'" }
+  - id: db.hostile-table-group-and-columns
+    area: database
+    kind: control
+    description: "Table named with CI group syntax; columns named with a single quote, a backtick, a newline and path separators"
+    location:
+      database:
+        - { object: table, schema: public, name: "##[group]nightwell" }
+        - { object: column, schema: public, table: "##[group]nightwell", name: "it's" }
+        - { object: column, schema: public, table: "##[group]nightwell", name: "back`tick" }
+        - { object: column, schema: public, table: "##[group]nightwell", name: "line\nbreak" }
+        - { object: column, schema: public, table: "##[group]nightwell", name: "../../etc/passwd" }
+        - { object: column, schema: public, table: "##[group]nightwell", name: "back\\slash" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from pg_class where relnamespace = 'public'::regnamespace and relname = '##[group]nightwell'" }
+  - id: db.hostile-comment
+    area: database
+    kind: control
+    description: "Comment on the markup-named table with a terminal escape, CI syntax, a newline and a path"
+    location:
+      database:
+        - { object: comment, schema: public, table: "<script>alert(1)</script>" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select obj_description(oid, 'pg_class') from pg_class where relnamespace = 'public'::regnamespace and relname = '<script>alert(1)</script>'" }
+  - id: db.hostile-policy-names
+    area: database
+    kind: control
+    description: "Policies on the markup-named table named with markup, a terminal escape, quotes and path separators; standard PostgreSQL only"
+    location:
+      database:
+        - { object: policy, schema: public, table: "<script>alert(1)</script>", name: "<script>alert(1)</script>" }
+        - { object: policy, schema: public, table: "<script>alert(1)</script>", name: "\e[31mpolicy" }
+        - { object: policy, schema: public, table: "<script>alert(1)</script>", name: "it's \"quoted\" `tick`" }
+        - { object: policy, schema: public, table: "<script>alert(1)</script>", name: "../../etc/passwd\\back" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from pg_catalog.pg_policy p join pg_catalog.pg_class c on c.oid = p.polrelid where c.relname = '<script>alert(1)</script>'" }
+  - id: db.hostile-function-names
+    area: database
+    kind: control
+    description: "Functions named with CI syntax, markup, a terminal escape and quotes"
+    location:
+      database:
+        - { object: function, schema: public, name: "##[group]fn", args: "" }
+        - { object: function, schema: public, name: "::error file=x::fn", args: "" }
+        - { object: function, schema: public, name: "<script>fn</script>", args: "" }
+        - { object: function, schema: public, name: "\e[31mfn", args: "" }
+        - { object: function, schema: public, name: "fn'quote\"double`tick", args: "" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('##[group]fn', '::error file=x::fn', '<script>fn</script>', U&'\\001B[31mfn', 'fn''quote\"double`tick')" }
+  - id: db.hostile-function-body-literal
+    area: database
+    kind: control
+    description: "Function hostile_text returns a string literal with markup, an escape, CI syntax, a newline, quotes and path separators"
+    location:
+      database:
+        - { object: function, schema: public, name: hostile_text, args: "" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select public.hostile_text()" }
+  - id: db.hostile-view-literal
+    area: database
+    kind: control
+    description: "View hostile_view returns the same hostile string literal"
+    location:
+      database:
+        - { object: view, schema: public, name: hostile_view }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select * from public.hostile_view" }
+  - id: db.shadow-function-now
+    area: database
+    kind: control
+    description: "Function public.now named like the built-in now(); its body raises an error naming itself"
+    location:
+      database:
+        - { object: function, schema: public, name: now, args: "" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname = 'now'" }
+  - id: db.shadow-operator-equals
+    area: database
+    kind: control
+    description: "Operator public.= on (text, text) named like the built-in; its function raises an error naming itself"
+    location:
+      database:
+        - { object: operator, schema: public, name: "=", args: "text, text" }
+        - { object: function, schema: public, name: canary_text_equals, args: "text, text" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select count(*) from pg_operator where oprnamespace = 'public'::regnamespace and oprname = '='" }
+  - id: db.canary-policy-function
+    area: storage
+    kind: control
+    description: "Function app_private.canary_policy_check raises an error naming itself; the policy buckets_canary calls it"
+    location:
+      database:
+        - { object: function, schema: app_private, name: canary_policy_check, args: "" }
+    sources: []
+    expected_rules: []
+    pending: false
+    oracle: { mode: probe-same, probe: "select proname from pg_proc where pronamespace = 'app_private'::regnamespace and proname = 'canary_policy_check'" }
+  - id: db.canary-policy-on-platform-table
+    area: storage
+    kind: tie
+    description: "Permissive policy on storage.buckets whose expression calls app_private.canary_policy_check"
+    location:
+      database:
+        - { object: policy, schema: storage, table: buckets, name: buckets_canary }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/storage/security/access-control.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+    oracle: { mode: not-in-dump }
+  - id: code.client-browser
+    area: auth
+    kind: tie
+    description: "Browser client created with createBrowserClient from the SSR helper package"
+    location: { file: "fixture/app/web/src/lib/supabase/client.ts", symbol: createClient }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/examples/auth/nextjs/lib/supabase/client.ts", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/ssr/blob/5064794a5c96c6460c015bd1543dfbc922ada9e4/src/createBrowserClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.client-server
+    area: auth
+    kind: tie
+    description: "Server client created with createServerClient from the SSR helper package, with a cookie store"
+    location: { file: "fixture/app/web/src/lib/supabase/server.ts", symbol: createClient }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/examples/auth/nextjs/lib/supabase/server.ts", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/ssr/blob/5064794a5c96c6460c015bd1543dfbc922ada9e4/src/createServerClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-select-embedded
+    area: database
+    kind: tie
+    description: "Select with an embedded members relation, an order and a range"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: listCellars }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-filters
+    area: database
+    kind: tie
+    description: "Select with in, gte, ilike and or filters and a limit modifier"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: findBottles }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestFilterBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-single
+    area: database
+    kind: tie
+    description: "Select ending in single()"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: getCellar }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestTransformBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-maybe-single
+    area: database
+    kind: tie
+    description: "Select ending in maybeSingle()"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: getMembership }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestTransformBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-insert
+    area: database
+    kind: tie
+    description: "Insert through the data client, returning the row"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: addBottle }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-update-match
+    area: database
+    kind: tie
+    description: "Update filtered with match()"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: renameBottle }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestFilterBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-update-eq
+    area: database
+    kind: tie
+    description: "Update filtered with eq()"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: setMemberRole }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-upsert
+    area: database
+    kind: tie
+    description: "Upsert with an onConflict target"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: saveTastingNote }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-delete
+    area: database
+    kind: tie
+    description: "Delete filtered with eq()"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: removeBottle }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-schema
+    area: database
+    kind: tie
+    description: "Query through schema('public') on the client"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: listPublicCellars }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/supabase-js/src/SupabaseClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.query-count-head
+    area: database
+    kind: tie
+    description: "Select with an exact count and head: true"
+    location: { file: "fixture/app/web/src/app/cellars/queries.ts", symbol: countBottles }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.rpc-search-bottles
+    area: rest
+    kind: tie
+    description: "rpc() call to the search_bottles function"
+    location: { file: "fixture/app/web/src/app/cellars/rpc.ts", symbol: searchBottles }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.rpc-cellar-summary
+    area: rest
+    kind: tie
+    description: "rpc() call to the cellar_summary function"
+    location: { file: "fixture/app/web/src/app/cellars/rpc.ts", symbol: cellarSummary }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-sign-in-password
+    area: auth
+    kind: tie
+    description: "signInWithPassword call"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: signIn }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-sign-up
+    area: auth
+    kind: tie
+    description: "signUp call"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: signUp }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-oauth
+    area: auth
+    kind: tie
+    description: "signInWithOAuth call for the github provider"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: signInWithGithub }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-otp-send
+    area: auth
+    kind: tie
+    description: "signInWithOtp call sending a one-time code"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: sendCode }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-otp-verify
+    area: auth
+    kind: tie
+    description: "verifyOtp call checking a one-time code"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: checkCode }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-state-listener
+    area: auth
+    kind: tie
+    description: "onAuthStateChange listener"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: watchSession }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-get-user
+    area: auth
+    kind: tie
+    description: "getUser call"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: currentUser }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-sign-out
+    area: auth
+    kind: tie
+    description: "signOut call"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: signOut }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-mfa-enroll
+    area: auth
+    kind: tie
+    description: "mfa.enroll call for a TOTP factor"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: enrollTotp }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-mfa-challenge-verify
+    area: auth
+    kind: tie
+    description: "mfa.challenge call followed by mfa.verify"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: verifyTotp }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.auth-mfa-list-factors
+    area: auth
+    kind: tie
+    description: "mfa.listFactors call"
+    location: { file: "fixture/app/web/src/app/auth/actions.ts", symbol: listFactors }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.storage-upload
+    area: storage
+    kind: tie
+    description: "Storage upload to the labels bucket"
+    location: { file: "fixture/app/web/src/app/labels/storage.ts", symbol: uploadLabel }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.storage-download
+    area: storage
+    kind: tie
+    description: "Storage download from the labels bucket"
+    location: { file: "fixture/app/web/src/app/labels/storage.ts", symbol: downloadLabel }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.storage-list
+    area: storage
+    kind: tie
+    description: "Storage list in the labels bucket"
+    location: { file: "fixture/app/web/src/app/labels/storage.ts", symbol: listLabels }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.storage-public-url
+    area: storage
+    kind: tie
+    description: "Storage getPublicUrl call"
+    location: { file: "fixture/app/web/src/app/labels/storage.ts", symbol: labelPublicUrl }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.storage-signed-url
+    area: storage
+    kind: tie
+    description: "Storage createSignedUrl call"
+    location: { file: "fixture/app/web/src/app/labels/storage.ts", symbol: labelSignedUrl }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.storage-remove
+    area: storage
+    kind: tie
+    description: "Storage remove call"
+    location: { file: "fixture/app/web/src/app/labels/storage.ts", symbol: removeLabels }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.storage-move
+    area: storage
+    kind: tie
+    description: "Storage move call"
+    location: { file: "fixture/app/web/src/app/labels/storage.ts", symbol: moveLabel }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.realtime-postgres-changes
+    area: realtime
+    kind: tie
+    description: "Channel subscribed to postgres_changes on a table"
+    location: { file: "fixture/app/web/src/app/tasting-room/realtime.ts", symbol: watchNotes }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/realtime-js/src/RealtimeChannel.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.realtime-broadcast
+    area: realtime
+    kind: tie
+    description: "Channel using broadcast send and receive"
+    location: { file: "fixture/app/web/src/app/tasting-room/realtime.ts", symbol: joinPour }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/realtime-js/src/RealtimeChannel.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.realtime-presence
+    area: realtime
+    kind: tie
+    description: "Channel using presence track and sync"
+    location: { file: "fixture/app/web/src/app/tasting-room/realtime.ts", symbol: joinRoom }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/realtime-js/src/RealtimeChannel.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.realtime-private-channel
+    area: realtime
+    kind: tie
+    description: "Channel created with the private option"
+    location: { file: "fixture/app/web/src/app/tasting-room/realtime.ts", symbol: joinPrivateRoom }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/realtime-js/src/RealtimeChannel.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.functions-invoke
+    area: edge-functions
+    kind: tie
+    description: "functions.invoke call to the restock function"
+    location: { file: "fixture/app/web/src/app/restock/invoke.ts", symbol: requestRestock }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/functions-js/src/FunctionsClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.gateway-rest
+    area: rest
+    kind: tie
+    description: "Direct fetch to the gateway path /rest/v1"
+    location: { file: "fixture/app/web/src/lib/gateway.ts", symbol: fetchBottles }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/getting-started/api-keys.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.gateway-auth
+    area: rest
+    kind: tie
+    description: "Direct fetch to the gateway path /auth/v1"
+    location: { file: "fixture/app/web/src/lib/gateway.ts", symbol: fetchAuthUser }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/getting-started/api-keys.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.gateway-storage
+    area: rest
+    kind: tie
+    description: "Direct fetch to the gateway path /storage/v1"
+    location: { file: "fixture/app/web/src/lib/gateway.ts", symbol: fetchLabel }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/getting-started/api-keys.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.gateway-functions
+    area: rest
+    kind: tie
+    description: "Direct fetch to the gateway path /functions/v1"
+    location: { file: "fixture/app/web/src/lib/gateway.ts", symbol: callRestock }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/getting-started/api-keys.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.admin-client
+    area: auth
+    kind: tie
+    description: "Client created in the worker with the SUPABASE_SECRET_KEY variable"
+    location: { file: "fixture/app/worker/src/admin.ts", symbol: admin }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/supabase-js/src/SupabaseClient.ts", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/getting-started/api-keys.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.admin-client-legacy-key
+    area: auth
+    kind: tie
+    description: "Client created in the worker with the SUPABASE_SERVICE_ROLE_KEY variable"
+    location: { file: "fixture/app/worker/src/admin.ts", symbol: legacyAdmin }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/getting-started/api-keys.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.admin-create-user
+    area: auth
+    kind: tie
+    description: "auth.admin.createUser call"
+    location: { file: "fixture/app/worker/src/admin.ts", symbol: inviteMember }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueAdminApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.admin-list-users
+    area: auth
+    kind: tie
+    description: "auth.admin.listUsers call"
+    location: { file: "fixture/app/worker/src/admin.ts", symbol: listMembers }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueAdminApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.admin-delete-user
+    area: auth
+    kind: tie
+    description: "auth.admin.deleteUser call"
+    location: { file: "fixture/app/worker/src/admin.ts", symbol: removeMember }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueAdminApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.admin-generate-link
+    area: auth
+    kind: tie
+    description: "auth.admin.generateLink call"
+    location: { file: "fixture/app/worker/src/admin.ts", symbol: magicLink }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueAdminApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.admin-create-bucket
+    area: storage
+    kind: tie
+    description: "storage.createBucket call"
+    location: { file: "fixture/app/worker/src/admin.ts", symbol: ensureLabelsBucket }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageBucketApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.manifest-flutter
+    area: auth
+    kind: tie
+    description: "Dart manifest of the mobile app depending on the supabase_flutter package"
+    location: { file: "fixture/app/mobile/pubspec.yaml", symbol: supabase_flutter }
+    sources:
+      - { url: "https://github.com/supabase/supabase-flutter/blob/610e9d37e2f399c87cf8c1310a0b6d36c831dd0d/packages/supabase_flutter/pubspec.yaml", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-import-npm
+    area: edge-functions
+    kind: tie
+    description: "Edge function importing the client library through an npm: specifier"
+    location: { file: "fixture/supabase/functions/restock/index.ts", symbol: createClient }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/dependencies.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-import-relative
+    area: edge-functions
+    kind: tie
+    description: "Edge function importing a shared module by relative path"
+    location: { file: "fixture/supabase/functions/restock/index.ts", symbol: corsHeaders }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/development-environment.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-env-injected
+    area: edge-functions
+    kind: tie
+    description: "Edge function reading SUPABASE_URL, SUPABASE_DB_URL and SUPABASE_SECRET_KEYS from the injected environment"
+    location: { file: "fixture/supabase/functions/restock/index.ts", symbol: secretKeys }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/secrets.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-service-client
+    area: edge-functions
+    kind: tie
+    description: "Edge function creating a client with a secret key"
+    location: { file: "fixture/supabase/functions/restock/index.ts", symbol: admin }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/secrets.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-restock-update
+    area: database
+    kind: tie
+    description: "Edge function updating the bottles table through the data client"
+    location: { file: "fixture/supabase/functions/restock/index.ts", symbol: "admin.from('bottles').update" }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-import-jsr
+    area: edge-functions
+    kind: tie
+    description: "Edge function importing the client library through a jsr: specifier"
+    location: { file: "fixture/supabase/functions/new-bottle-hook/index.ts", symbol: createClient }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/dependencies.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-hook-client
+    area: edge-functions
+    kind: tie
+    description: "Webhook receiver creating a client with a secret key"
+    location: { file: "fixture/supabase/functions/new-bottle-hook/index.ts", symbol: admin }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/secrets.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-hook-receiver
+    area: edge-functions
+    kind: tie
+    description: "Webhook receiver handler for a database webhook payload, with JWT verification off"
+    location: { file: "fixture/supabase/functions/new-bottle-hook/index.ts", symbol: "Deno.serve" }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/database/webhooks.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-import-esm-url
+    area: edge-functions
+    kind: tie
+    description: "Edge function importing the client library through an https URL specifier"
+    location: { file: "fixture/supabase/functions/label-thumbnail/index.ts", symbol: createClient }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/dependencies.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-thumbnail-client
+    area: auth
+    kind: tie
+    description: "Edge function creating a client with a publishable key and the caller's Authorization header"
+    location: { file: "fixture/supabase/functions/label-thumbnail/index.ts", symbol: createClient }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/secrets.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-thumbnail-get-user
+    area: auth
+    kind: tie
+    description: "Edge function calling auth.getUser with the caller's token"
+    location: { file: "fixture/supabase/functions/label-thumbnail/index.ts", symbol: "supabase.auth.getUser" }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-thumbnail-storage-download
+    area: storage
+    kind: tie
+    description: "Edge function downloading from the labels bucket"
+    location: { file: "fixture/supabase/functions/label-thumbnail/index.ts", symbol: "supabase.storage.from('labels').download" }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-import-bare
+    area: edge-functions
+    kind: tie
+    description: "Edge function importing the client library through a bare specifier mapped in deno.json"
+    location: { file: "fixture/supabase/functions/tasting-digest/index.ts", symbol: createClient }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/dependencies.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-digest-client
+    area: edge-functions
+    kind: tie
+    description: "Edge function creating a client with a secret key"
+    location: { file: "fixture/supabase/functions/tasting-digest/index.ts", symbol: admin }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/functions/secrets.mdx", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.fn-digest-select
+    area: database
+    kind: tie
+    description: "Edge function selecting from the tasting_notes table through the data client"
+    location: { file: "fixture/supabase/functions/tasting-digest/index.ts", symbol: tasting_notes }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hard-reexport-named
+    area: database
+    kind: tie
+    description: "Query through a client re-exported by name from another module"
+    location: { file: "fixture/app/web/src/app/cellars/reexport-use.ts", symbol: listCellarNames }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hard-reexport-star
+    area: database
+    kind: tie
+    description: "Query through a client re-exported with export *"
+    location: { file: "fixture/app/web/src/app/cellars/reexport-use.ts", symbol: listCellarIds }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hard-async-wrapper
+    area: database
+    kind: tie
+    description: "Query through a client returned by an async factory function"
+    location: { file: "fixture/app/web/src/app/cellars/wrapper-use.ts", symbol: listWishlist }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hard-destructured-methods
+    area: auth
+    kind: tie
+    description: "Auth and storage methods destructured from the client before use"
+    location: { file: "fixture/app/web/src/app/auth/destructured.ts", symbol: leaveAndListLabels }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/auth-js/src/GoTrueClient.ts", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hard-destructured-result
+    area: database
+    kind: tie
+    description: "Query on a client held in a local variable, result destructured"
+    location: { file: "fixture/app/web/src/app/auth/destructured.ts", symbol: loadCellars }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hard-class-field
+    area: database
+    kind: tie
+    description: "Query through a client held in a class field"
+    location: { file: "fixture/app/web/src/lib/db/repository.ts", symbol: listByCellar }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hard-context-hook
+    area: database
+    kind: tie
+    description: "Query through a client returned by a useSupabase context hook"
+    location: { file: "fixture/app/web/src/app/cellars/hook-use.tsx", symbol: MemberCount }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hard-nuxt-composable
+    area: database
+    kind: tie
+    description: "Query through a client from the auto-imported useSupabase composable in a Vue single-file component"
+    location: { file: "fixture/app/nuxt/app/components/CellarList.vue", symbol: useSupabase }
+    sources:
+      - { url: "https://github.com/supabase/supabase/blob/49525599d17c04d4fa8e9e0fb64e89b0b53e9344/apps/docs/content/guides/getting-started/quickstarts/nuxtjs.mdx", read: 2026-11-26 }
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hard-dynamic-table
+    area: database
+    kind: tie
+    description: "Query whose table name is a function parameter"
+    location: { file: "fixture/app/web/src/app/cellars/dynamic.ts", symbol: readTable }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hard-dynamic-rpc
+    area: rest
+    kind: tie
+    description: "rpc() call whose function name is built at run time"
+    location: { file: "fixture/app/web/src/app/cellars/dynamic.ts", symbol: callReport }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.control-pg-driver
+    area: database
+    kind: control
+    description: "Query through the pg driver pool with a connection string"
+    location: { file: "fixture/app/worker/src/reports.ts", symbol: pool }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-kysely-builder
+    area: database
+    kind: control
+    description: "Query through the Kysely builder on a PostgreSQL dialect"
+    location: { file: "fixture/app/worker/src/ledger.ts", symbol: listVarieties }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-lookalike-map
+    area: database
+    kind: control
+    description: "Local class with from() and select() methods, no SDK"
+    location: { file: "fixture/app/web/src/lib/lookalike.ts", symbol: supabase }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-lookalike-local-storage
+    area: storage
+    kind: control
+    description: "Local object with from() and list() methods over localStorage, no SDK"
+    location: { file: "fixture/app/web/src/lib/lookalike.ts", symbol: storage }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-lookalike-broadcast
+    area: realtime
+    kind: control
+    description: "Browser BroadcastChannel, not a realtime channel"
+    location: { file: "fixture/app/web/src/lib/lookalike.ts", symbol: tabs }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-lookalike-auth
+    area: auth
+    kind: control
+    description: "Local object with a signOut method, no SDK"
+    location: { file: "fixture/app/web/src/lib/lookalike.ts", symbol: forgetVisitor }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-mention-string
+    area: database
+    kind: control
+    description: "A string and a comment that name SDK calls as text"
+    location: { file: "fixture/app/web/src/lib/mentions.ts", symbol: hint }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-query
+    area: database
+    kind: control
+    description: "Local object with from() and select(), no SDK"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: ledger }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-rpc
+    area: rest
+    kind: control
+    description: "Method named rpc on a parameter, no SDK"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: pingRemote }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-auth
+    area: auth
+    kind: control
+    description: "auth imported from a local module"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: login }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-storage
+    area: storage
+    kind: control
+    description: "Local object with from() and upload(), no SDK"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: s3 }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-realtime
+    area: realtime
+    kind: control
+    description: "Method named channel on a parameter, no SDK"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: joinRoom }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-functions
+    area: edge-functions
+    kind: control
+    description: "Local object with functions.invoke, no SDK"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: registry }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-helper-package
+    area: auth
+    kind: control
+    description: "Import from a package named like a superseded helper package, in an example scope"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: getSession }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-rest-syntax
+    area: rest
+    kind: control
+    description: "A URL with a select query parameter on an application path"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: searchUrl }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-env-names
+    area: rest
+    kind: control
+    description: "Environment variables NEXT_PUBLIC_API_URL and DATABASE_URL"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: apiBase }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-gateway-paths
+    area: rest
+    kind: control
+    description: "Paths ending in /rest that are not gateway paths"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: localRest }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.control-nearmiss-key-prefix
+    area: rest
+    kind: control
+    description: "An identifier that starts with sb_"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: sb_toggle }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.canary-publishable-key
+    area: rest
+    kind: control
+    description: "A canary string in the publishable-key format, with a body that fails the format check"
+    location: { file: "fixture/app/web/src/lib/nearmiss.ts", symbol: embeddedKey }
+    sources: []
+    expected_rules: []
+    pending: false
+  - id: code.hostile-markup
+    area: database
+    kind: tie
+    description: "Table name containing markup"
+    location: { file: "fixture/app/web/src/app/hostile/strings.ts", symbol: markup }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hostile-terminal-escape
+    area: database
+    kind: tie
+    description: "Table name containing a terminal escape"
+    location: { file: "fixture/app/web/src/app/hostile/strings.ts", symbol: escape }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hostile-ci-annotation
+    area: database
+    kind: tie
+    description: "Table name containing CI annotation syntax"
+    location: { file: "fixture/app/web/src/app/hostile/strings.ts", symbol: annotation }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hostile-ci-group
+    area: storage
+    kind: tie
+    description: "Bucket name containing CI group syntax"
+    location: { file: "fixture/app/web/src/app/hostile/strings.ts", symbol: group }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hostile-quotes
+    area: database
+    kind: tie
+    description: "Table name containing single and double quotes and backticks"
+    location: { file: "fixture/app/web/src/app/hostile/strings.ts", symbol: quotes }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hostile-newline
+    area: realtime
+    kind: tie
+    description: "Channel name containing a newline"
+    location: { file: "fixture/app/web/src/app/hostile/strings.ts", symbol: newline }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/supabase-js/src/SupabaseClient.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hostile-path-traversal
+    area: storage
+    kind: tie
+    description: "Bucket name containing path separators"
+    location: { file: "fixture/app/web/src/app/hostile/strings.ts", symbol: traversal }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/storage-js/src/packages/StorageFileApi.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hostile-backslash
+    area: database
+    kind: tie
+    description: "Table name containing a backslash"
+    location: { file: "fixture/app/web/src/app/hostile/strings.ts", symbol: backslash }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false
+  - id: code.hostile-email-canary
+    area: database
+    kind: tie
+    description: "Table name that is an email address canary"
+    location: { file: "fixture/app/web/src/app/hostile/strings.ts", symbol: emailLiteral }
+    sources:
+      - { url: "https://github.com/supabase/supabase-js/blob/ad56f218480c05a4f4eadbd4766359f047b827ae/packages/core/postgrest-js/src/PostgrestQueryBuilder.ts", read: 2026-11-26 }
+    expected_rules: []
+    pending: false

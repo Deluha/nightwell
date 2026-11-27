@@ -107,6 +107,7 @@ THIRD_PARTY_NOTICES.md
 docs/threat-model.md
 docs/stability.md
 tests/README.md
+fixture/README.md
 .claude/agents/*.md
 .claude/rules/*.md
 .claude/skills/**

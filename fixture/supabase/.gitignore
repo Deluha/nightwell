@@ -1,0 +1,3 @@
+# Written by the CLI while the fixture runs.
+.branches/
+.temp/

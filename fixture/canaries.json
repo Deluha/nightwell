@@ -1,0 +1,76 @@
+{
+  "canaries_version": 1,
+  "canaries": [
+    {
+      "id": "platform-secret-key",
+      "kind": "platform-key",
+      "value": "sb_secret_NIGHTWELLCANARY0000000001",
+      "note": "Synthetic. Supabase's documentation (supabase/supabase apps/docs/content/guides/getting-started/api-keys.mdx, read 2026-11-26) documents only the sb_secret_ prefix, so the body follows no published format.",
+      "planted_in": [
+        "supabase_functions.http_request trigger grape_webhook on public.grape_varieties: headers argument",
+        "public.partner_feed: literal column feed_key"
+      ]
+    },
+    {
+      "id": "platform-publishable-key",
+      "kind": "platform-key",
+      "value": "sb_publishable_NIGHTWELLCANARY0000000002",
+      "note": "Synthetic. Supabase's documentation (supabase/supabase apps/docs/content/guides/getting-started/api-keys.mdx, read 2026-11-26) documents only the sb_publishable_ prefix, so the body follows no published format.",
+      "planted_in": [
+        "policy grape_varieties_partner_header on public.grape_varieties: literal in the expression",
+        "fixture/app/web/src/lib/nearmiss.ts:embeddedKey"
+      ]
+    },
+    {
+      "id": "legacy-jwt",
+      "kind": "jwt",
+      "value": "eyJhbGciOiJub25lIiwidHlwIjoiTklHSFRXRUxMLUNBTkFSWSJ9.eyJyb2xlIjoibmlnaHR3ZWxsLWNhbmFyeSIsInJlZiI6Im5vdC1hLXByb2plY3QifQ.bm90LWEtc2lnbmF0dXJl",
+      "note": "Synthetic. Imitates a legacy JWT API key: header {\"alg\":\"none\",\"typ\":\"NIGHTWELL-CANARY\"}, unsigned, claims name no real project.",
+      "planted_in": [
+        "cron.job weekly-grape-sync: command, apikey header",
+        "public.grape_varieties.legacy_token: column default"
+      ]
+    },
+    {
+      "id": "high-entropy",
+      "kind": "high-entropy",
+      "value": "nwc_g11JH4_kk_4wrEW2ePlDnsD_EDipifiL",
+      "note": "Synthetic. Imitates a random machine-generated token; prefix nwc_ marks it as a Nightwell canary.",
+      "planted_in": [
+        "role authenticated: setting pgrst.cellar_partner_key",
+        "public.grape_varieties.name: column comment"
+      ]
+    },
+    {
+      "id": "dictionary-word",
+      "kind": "dictionary-word",
+      "value": "cellardoor-canary-password",
+      "note": "Synthetic. Imitates a human-chosen password made of words.",
+      "planted_in": [
+        "supabase_functions.http_request trigger grape_webhook on public.grape_varieties: URL path",
+        "user mapping for authenticated on server cellar_archive: password option",
+        "foreign server cellar_archive: application_name option"
+      ]
+    },
+    {
+      "id": "email",
+      "kind": "email",
+      "value": "canary.nightwell@example.com",
+      "note": "Synthetic. An address at the reserved example.com domain.",
+      "planted_in": [
+        "public.grape_varieties.name: column comment",
+        "fixture/app/web/src/app/hostile/strings.ts:emailLiteral"
+      ]
+    },
+    {
+      "id": "db-connection-string",
+      "kind": "connection-string",
+      "value": "postgresql://cellarbook:nwc_g11JH4_kk_4wrEW2ePlDnsD_EDipifiL@db.cellarbook.invalid:5432/postgres",
+      "scanner_match": "postgresql://cellarbook:nwc_g11JH4_kk_4wrEW2ePlDnsD_EDipifiL@",
+      "note": "Synthetic. A PostgreSQL connection string with a password; the host ends in .invalid (RFC 2606). scanner_match is the part the connection-string rule matches.",
+      "planted_in": [
+        "fixture/app/worker/src/reports.ts:pool"
+      ]
+    }
+  ]
+}

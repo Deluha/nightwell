@@ -7,6 +7,11 @@
       "expect": "Opens references/style.md and searches existing messages before writing one."
     },
     {
+      "id": "route-fixture",
+      "prompt": "Add a fixture policy that calls auth.jwt() for a new claim.",
+      "expect": "Opens references/workflows/changing-the-fixture.md: a new migration with a planted marker and source, a manifest entry, then the oracle on 17 and 15."
+    },
+    {
       "id": "route-checker",
       "prompt": "The docs-sync check should also cover the queries directory.",
       "expect": "Opens references/checkers.md and the changing-guidance workflow; stops to ask first, because a checker and its data are guidance."

@@ -1,0 +1,63 @@
+# Started by hand. Boots the demo fixture on PostgreSQL 17 and 15 and uploads, as
+# downloadable artefacts, a schema-only dump of the fixture database and the output of
+# the committed platform-object queries (scripts/hosted-verify/u8-*.sql) run against it.
+# Catalog snapshots and platform inventories are added to this workflow when their
+# generators exist.
+name: fixture-artifacts
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  artifacts:
+    name: artefacts (PostgreSQL ${{ matrix.pg }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: [17, 15]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install from the lockfile, install scripts off
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Start the fixture
+        run: npm run fixture:start -- --pg ${{ matrix.pg }}
+      - name: Dump the schema and run the platform-object queries
+        env:
+          PG: ${{ matrix.pg }}
+        run: |
+          set -euo pipefail
+          out="artifacts/pg$PG"
+          mkdir -p "$out"
+          docker exec supabase_db_cellarbook pg_dump -U postgres -d postgres --schema-only > "$out/schema.sql"
+          for query in scripts/hosted-verify/u8-*.sql; do
+            result="$out/$(basename "$query" .sql).txt"
+            docker exec -i supabase_db_cellarbook psql -U postgres -d postgres --no-psqlrc -X -v ON_ERROR_STOP=1 < "$query" > "$result"
+          done
+          {
+            echo "cli: supabase $(node -p "require('./package.json').devDependencies.supabase")"
+            echo "postgres major: $PG"
+            echo "images: $(grep -E "^(PG${PG}_DB|AUTH|REALTIME|STORAGE)=" fixture/versions.env | tr '\n' ' ')"
+            echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "commands: pg_dump -U postgres -d postgres --schema-only; psql -f scripts/hosted-verify/u8-*.sql"
+          } > "$out/provenance.txt"
+      - name: Stop the fixture
+        if: always()
+        run: npm run fixture:stop
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fixture-pg${{ matrix.pg }}
+          path: artifacts/pg${{ matrix.pg }}
+          retention-days: 7
+          if-no-files-found: error

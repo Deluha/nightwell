@@ -40,3 +40,18 @@ regex = '''\bsb_(?:secret|publishable)_[A-Za-z0-9_-]{16,}'''
 id = "nightwell-connection-string"
 description = "A PostgreSQL connection string that carries a password"
 regex = '''postgres(?:ql)?://[^\s:@/]+:[^\s@/]+@'''
+
+# Canary credentials: synthetic values the fixture plants to prove the scanners
+# accept them. Every entry must equal a value in fixture/canaries.json, and
+# nothing else belongs here.
+[[allowlists]]
+description = "Canary credentials of the fixture"
+regexes = [
+  '''^sb_secret_NIGHTWELLCANARY0000000001$''',
+  '''^sb_publishable_NIGHTWELLCANARY0000000002$''',
+  '''^eyJhbGciOiJub25lIiwidHlwIjoiTklHSFRXRUxMLUNBTkFSWSJ9\.eyJyb2xlIjoibmlnaHR3ZWxsLWNhbmFyeSIsInJlZiI6Im5vdC1hLXByb2plY3QifQ\.bm90LWEtc2lnbmF0dXJl$''',
+  '''^nwc_g11JH4_kk_4wrEW2ePlDnsD_EDipifiL$''',
+  '''^cellardoor-canary-password$''',
+  '''^canary\.nightwell@example\.com$''',
+  '''^postgresql://cellarbook:nwc_g11JH4_kk_4wrEW2ePlDnsD_EDipifiL@$''',
+]

@@ -35,11 +35,13 @@ Never skip a hook. A hook that fails wrongly is fixed through the changing-guida
 
 | Workflow                                   | Does                                                                                                                                                                                               |
 | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci`                                       | Calls the four below and ends in the required check `CI gate`                                                                                                                                      |
+| `ci`                                       | Calls the five below and ends in the required check `CI gate`                                                                                                                                      |
 | `ci-pre-commit`                            | Every hook on the whole tree; the secret scan over the pull request's commits, messages, text and the tree; the workflow linter                                                                    |
 | `ci-docs-sync`                             | Docs sync against the pull-request base                                                                                                                                                            |
 | `ci-tests`                                 | Type-check and the offline suite with coverage, on three operating systems and every supported Node line                                                                                           |
 | `ci-package`                               | Packs the tarball, installs it into an empty directory with scripts off, runs the binary, lints the export map and types                                                                           |
+| `ci-fixture`                               | Boots the fixture on PostgreSQL 17 and 15 and runs the live tests and the oracle; part of `CI gate`                                                                                                |
+| `fixture-artifacts`                        | Started by hand: uploads schema-only dumps of the fixture and the results of the platform-object queries                                                                                           |
 | `path-guard`                               | The second required check, `Path guard`: fails an outside pull request that touches protected paths until a maintainer labels it. It runs from the base branch, so a pull request cannot change it |
 | `pr-text-scan`                             | The secret scan of a pull request's title and description when they are edited                                                                                                                     |
 | `codeql`, `dependency-review`, `scorecard` | Static analysis of code and workflows; dependency and licence review; supply-chain posture                                                                                                         |
@@ -60,7 +62,24 @@ and `Path guard` are required on the default branch.
 
 ## The fixture
 
-Arrives in Phase 1. Phases 1, 2, 3 and 6 need Docker in the session; a session without it stops before
+The demo project lives in `fixture/`; the CLI project directory is `fixture/supabase/`.
+
+- Images are pinned by digest in `fixture/versions.env`, the single home of the pins; `start` stops the
+  fixture unless every running fixture container runs a pinned image.
+- `npm run fixture:start`, `fixture:reset` and `fixture:stop` run it. `start` takes `--pg 15` and
+  `--with-pooler`; `NIGHTWELL_FIXTURE_LATEST=1` runs the newest CLI and images, unpinned.
+- `fixture/` is excluded from lint, format, static analysis and dependency updates (owner, 2026-11-26),
+  but not from the secret scan. Dependency review has no path filter, so it still reviews the fixture's
+  manifests; only its Flutter package is exempt from the licence check (owner, 2026-11-27).
+- Canary credentials live in `fixture/canaries.json` and are allow-listed by exact value in
+  `.gitleaks.toml`.
+- Live tests run with `NIGHTWELL_LIVE=1` against a started fixture.
+- `fixture/manifest.yaml` lists every planted feature; the oracle loads the dumped non-managed schemas
+  into stock PostgreSQL 17 and checks each entry's declared mode. A mismatch means the manifest is wrong.
+- `fixture/README.md` describes the fixture; `workflows/changing-the-fixture.md` is how to
+  change it.
+
+Phases 1, 2, 3 and 6 need Docker in the session; a session without it stops before
 the first commit and tells the owner.
 
 ## The hosted database
